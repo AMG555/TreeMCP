@@ -187,28 +187,60 @@
         </div>
 
         <div class="tab-content-container">
-          <!-- Tab 1: Directory Tree Table -->
+          <!-- Tab 1: Directory Tree & File Type Dual View -->
           <div id="pane-tree" class="tab-content-pane active">
-            <div class="table-container">
-              <table class="grid-table" id="tree-table">
-                <thead>
-                  <tr>
-                    <th class="col-name" style="width: 38%;">Name</th>
-                    <th class="col-pct" style="width: 14%;">% Parent</th>
-                    <th class="col-size" style="width: 12%;">Size</th>
-                    <th class="col-alloc" style="width: 12%;">Allocated</th>
-                    <th class="col-num" style="width: 12%;">Files</th>
-                    <th class="col-num" style="width: 12%;">Folders</th>
-                  </tr>
-                </thead>
-                <tbody id="tree-table-body">
-                  <tr>
-                    <td colspan="6" class="table-placeholder">
-                      Select a drive and click <b>Scan</b> to analyze storage.
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="dual-tree-wrapper">
+              <!-- Left: Folder and File Tree View -->
+              <div class="dual-tree-left">
+                <div class="table-container">
+                  <table class="grid-table" id="tree-table">
+                    <thead>
+                      <tr>
+                        <th class="col-name" style="width: 38%;">Name</th>
+                        <th class="col-pct" style="width: 14%;">% Parent</th>
+                        <th class="col-size" style="width: 12%;">Size</th>
+                        <th class="col-alloc" style="width: 12%;">Allocated</th>
+                        <th class="col-num" style="width: 12%;">Files</th>
+                        <th class="col-num" style="width: 12%;">Folders</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tree-table-body">
+                      <tr>
+                        <td colspan="6" class="table-placeholder">
+                          Select a drive and click <b>Scan</b> to analyze storage.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Vertical Splitter -->
+              <div class="splitter-vertical-dual" id="dual-splitter"></div>
+
+              <!-- Right: Extension Breakdown Matrix -->
+              <div class="dual-tree-right">
+                <div class="table-container">
+                  <table class="grid-table" id="ext-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 20%;">Extension</th>
+                        <th style="width: 28%;">File Type</th>
+                        <th style="width: 14%;">% Share</th>
+                        <th style="width: 18%;">Size</th>
+                        <th style="width: 20%;">Files</th>
+                      </tr>
+                    </thead>
+                    <tbody id="ext-table-body">
+                      <tr>
+                        <td colspan="5" class="table-placeholder">
+                          No scan data available.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -261,21 +293,22 @@
             </div>
           </div>
 
-          <!-- Tab 4: File Type Statistics -->
+          <!-- Tab 4: File Types (Standalone View) -->
           <div id="pane-ext" class="tab-content-pane">
             <div class="table-container">
-              <table class="grid-table" id="ext-table">
+              <table class="grid-table" id="ext-table-standalone">
                 <thead>
                   <tr>
                     <th style="width: 20%;">Extension</th>
-                    <th style="width: 20%;">Total Size</th>
-                    <th style="width: 35%;">% of Storage</th>
-                    <th style="width: 25%;">File Count</th>
+                    <th style="width: 25%;">File Type</th>
+                    <th style="width: 15%;">Total Size</th>
+                    <th style="width: 20%;">% of Storage</th>
+                    <th style="width: 20%;">File Count</th>
                   </tr>
                 </thead>
-                <tbody id="ext-table-body">
+                <tbody id="ext-table-standalone-body">
                   <tr>
-                    <td colspan="4" class="table-placeholder">
+                    <td colspan="5" class="table-placeholder">
                       No scan data available.
                     </td>
                   </tr>

@@ -125,16 +125,31 @@ std::string serialize_drives(const std::vector<DriveInfo>& drives) {
     return ss.str();
 }
 
-// Node serialization for UI Tree
-std::string serialize_tree_for_ui(uint32_t idx, int max_depth, int cur_depth = 0) {
+// Node serialization for UI Tree (supports folders and individual files)
+std::string serialize_node_item(uint32_t idx) {
     if (idx == INVALID_INDEX || idx >= g_tree.node_count()) return "null";
     const auto& node = g_tree.get_node(idx);
 
     std::string name = g_tree.get_name(idx);
     std::string full_path = g_tree.get_full_path(idx);
+    std::string ext = g_tree.get_extension(idx);
+
     std::string esc_name, esc_path;
-    for (char c : name) { if (c == '\\' || c == '"') esc_name += '\\'; esc_name += c; }
-    for (char c : full_path) { if (c == '\\' || c == '"') esc_path += '\\'; esc_path += c; }
+    esc_name.reserve(name.size() * 2);
+    for (char c : name) {
+        if (c == '\\') esc_name += "\\\\";
+        else if (c == '"') esc_name += "\\\"";
+        else if (static_cast<unsigned char>(c) < 32) esc_name += ' ';
+        else esc_name += c;
+    }
+
+    esc_path.reserve(full_path.size() * 2);
+    for (char c : full_path) {
+        if (c == '\\') esc_path += "\\\\";
+        else if (c == '"') esc_path += "\\\"";
+        else if (static_cast<unsigned char>(c) < 32) esc_path += ' ';
+        else esc_path += c;
+    }
 
     std::stringstream ss;
     ss << "{\"node_idx\":" << idx
@@ -143,9 +158,24 @@ std::string serialize_tree_for_ui(uint32_t idx, int max_depth, int cur_depth = 0
        << ",\"size\":" << node.size
        << ",\"allocated_size\":" << node.allocated_size
        << ",\"is_dir\":" << (node.is_directory() ? "true" : "false")
+       << ",\"extension\":\"" << ext << "\""
        << ",\"file_count\":" << node.file_count
        << ",\"dir_count\":" << node.dir_count
-       << ",\"children\":[";
+       << ",\"has_children\":" << (node.first_child != INVALID_INDEX ? "true" : "false")
+       << "}";
+    return ss.str();
+}
+
+std::string serialize_tree_for_ui(uint32_t idx, int max_depth, int cur_depth = 0) {
+    if (idx == INVALID_INDEX || idx >= g_tree.node_count()) return "null";
+    const auto& node = g_tree.get_node(idx);
+
+    std::string base = serialize_node_item(idx);
+    // Remove closing brace to append children
+    std::string item_json = base.substr(0, base.size() - 1);
+
+    std::stringstream ss;
+    ss << item_json << ",\"children\":[";
 
     if (cur_depth < max_depth && node.is_directory()) {
         auto children = g_tree.get_children(idx);
@@ -306,8 +336,8 @@ void handle_http_client(socket_t client_sock) {
                 ScanStats stats;
                 g_scanner.scan(path_param, g_tree, stats);
 
-                auto tiles = TreemapEngine::compute_layout(g_tree, g_tree.root_idx(), 0, 0, 1000, 600, 2, 500 * 1024);
-                auto exts = g_tree.get_extension_stats(g_tree.root_idx(), 15);
+                auto tiles = TreemapEngine::compute_layout(g_tree, g_tree.root_idx(), 0, 0, 1000, 600, 10, 10 * 1024);
+                auto exts = g_tree.get_extension_stats(g_tree.root_idx(), 25);
 
                 std::stringstream ss;
                 ss << "{\"stats\":{\"total_files\":" << stats.total_files
@@ -322,6 +352,19 @@ void handle_http_client(socket_t client_sock) {
                    << "}";
                 body = ss.str();
             }
+        } else if (clean_uri.find("/api/tree-children") == 0) {
+            content_type = "application/json";
+            std::string nidx_str = get_query_param(uri, "node_idx");
+            uint32_t node_idx = nidx_str.empty() ? g_tree.root_idx() : std::stoul(nidx_str);
+            auto children = g_tree.get_children(node_idx);
+            std::stringstream ss;
+            ss << "{\"children\":[";
+            for (size_t i = 0; i < children.size(); ++i) {
+                if (i > 0) ss << ",";
+                ss << serialize_node_item(children[i]);
+            }
+            ss << "]}";
+            body = ss.str();
         } else if (clean_uri.find("/api/treemap") == 0) {
             content_type = "application/json";
             uint32_t node_idx = g_tree.root_idx();
@@ -329,7 +372,7 @@ void handle_http_client(socket_t client_sock) {
             if (!nidx_str.empty()) {
                 node_idx = std::stoul(nidx_str);
             }
-            auto tiles = TreemapEngine::compute_layout(g_tree, node_idx, 0, 0, 1000, 600, 2, 100 * 1024);
+            auto tiles = TreemapEngine::compute_layout(g_tree, node_idx, 0, 0, 1000, 600, 10, 10 * 1024);
             body = "{\"tiles\":" + serialize_tiles(tiles) + "}";
         } else if (clean_uri.find("/api/top-hogs") == 0) {
             content_type = "application/json";
@@ -367,9 +410,19 @@ void handle_http_client(socket_t client_sock) {
 #ifdef _WIN32
             wchar_t exe_path[MAX_PATH];
             GetModuleFileNameW(NULL, exe_path, MAX_PATH);
-            HINSTANCE hInst = ShellExecuteW(NULL, L"runas", exe_path, NULL, NULL, SW_SHOWNORMAL);
+
+            // Launch elevated process with --elevated flag so it immediately bypasses single-instance check
+            HINSTANCE hInst = ShellExecuteW(NULL, L"runas", exe_path, L"--elevated", NULL, SW_SHOWNORMAL);
             bool launched = ((INT_PTR)hInst > 32);
             body = "{\"ok\":" + std::string(launched ? "true" : "false") + "}";
+            if (launched) {
+                // Yield port and mutex cleanly so elevated child binds instantly
+                std::thread([]() {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                    g_server_running = false;
+                    exit(0);
+                }).detach();
+            }
 #else
             body = "{\"ok\":false,\"message\":\"Elevation only supported on Windows\"}";
 #endif
@@ -463,6 +516,14 @@ void handle_http_client(socket_t client_sock) {
                     body = "{\"success\":false,\"message\":\"" + del_res.error_message + "\"}";
                 }
             }
+        } else if (clean_uri == "/api/exit") {
+            content_type = "application/json";
+            body = "{\"ok\":true}";
+            std::thread([]() {
+                std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                g_server_running = false;
+                std::exit(0);
+            }).detach();
         } else if (clean_uri == "/mcp" || clean_uri == "/api/mcp") {
             content_type = "application/json";
             size_t body_pos = req.find("\r\n\r\n");
@@ -479,6 +540,9 @@ void handle_http_client(socket_t client_sock) {
     resp << "HTTP/1.1 " << status_code << " " << status_text << "\r\n"
          << "Content-Type: " << content_type << "\r\n"
          << "Content-Length: " << body.size() << "\r\n"
+         << "Cache-Control: no-cache, no-store, must-revalidate\r\n"
+         << "Pragma: no-cache\r\n"
+         << "Expires: 0\r\n"
          << "X-Content-Type-Options: nosniff\r\n"
          << "X-Frame-Options: DENY\r\n"
          << "Content-Security-Policy: default-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*;\r\n"
@@ -491,33 +555,97 @@ void handle_http_client(socket_t client_sock) {
     CLOSE_SOCKET(client_sock);
 }
 
-void run_web_server(int port) {
+void run_web_server(int initial_port) {
 #ifdef _WIN32
     WSADATA wsa;
     WSAStartup(MAKEWORD(2, 2), &wsa);
 #endif
 
-    socket_t server_sock = socket(AF_INET, SOCK_STREAM, 0);
-    int opt = 1;
-    setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+    socket_t server_sock = INVALID_SOCKET;
+    int port = initial_port;
+    for (int p = initial_port; p <= initial_port + 20; ++p) {
+        socket_t s = socket(AF_INET, SOCK_STREAM, 0);
+        int opt = 1;
+        setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
 
-    sockaddr_in server_addr{};
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    server_addr.sin_port = htons(port);
+        sockaddr_in server_addr{};
+        server_addr.sin_family = AF_INET;
+        server_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        server_addr.sin_port = htons(p);
 
-    if (bind(server_sock, (sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
-        std::cerr << "Failed to bind to port " << port << std::endl;
-        CLOSE_SOCKET(server_sock);
+        if (bind(s, (sockaddr*)&server_addr, sizeof(server_addr)) != SOCKET_ERROR) {
+            server_sock = s;
+            port = p;
+            break;
+        }
+        CLOSE_SOCKET(s);
+    }
+
+    if (server_sock == INVALID_SOCKET) {
+        std::cerr << "Failed to bind to any port in range " << initial_port << "-" << (initial_port + 20) << std::endl;
 #ifdef _WIN32
         WSACleanup();
 #endif
         return;
     }
 
+    g_port = port;
+
     listen(server_sock, 10);
     std::cout << "[TreeMCP Server] Listening on http://127.0.0.1:" << port << std::endl;
     std::cout << "[Security Policy] Anti-DNS Rebinding: ACTIVE | Session Token Auth: ACTIVE\n";
+    std::cout << "  * Desktop UI:       http://127.0.0.1:" << port << "/?token=" << g_session_token << "\n";
+
+    // Launch UI once port is verified
+    std::thread([port]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        std::string target_url = "http://127.0.0.1:" + std::to_string(port) + "/?token=" + g_session_token;
+#ifdef _WIN32
+        // Launch as an isolated standalone native app window (no address bar, no tabs, no browser chrome)
+        char local_app_data[MAX_PATH];
+        std::string profile_dir;
+        if (GetEnvironmentVariableA("LOCALAPPDATA", local_app_data, MAX_PATH) > 0) {
+            profile_dir = std::string(local_app_data) + "\\TreeMCP\\profile";
+            CreateDirectoryA(profile_dir.c_str(), NULL);
+        }
+
+        std::vector<std::string> engines = {
+            "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+            "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+            "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+            "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+        };
+
+        bool window_launched = false;
+        for (const auto& exe : engines) {
+            DWORD attr = GetFileAttributesA(exe.c_str());
+            if (attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
+                std::string cmd = "\"" + exe + "\" --app=\"" + target_url + "\"";
+                if (!profile_dir.empty()) {
+                    cmd += " --user-data-dir=\"" + profile_dir + "\"";
+                }
+                cmd += " --no-first-run --no-default-browser-check --window-size=1280,820";
+
+                STARTUPINFOA si{};
+                PROCESS_INFORMATION pi{};
+                si.cb = sizeof(si);
+                if (CreateProcessA(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+                    CloseHandle(pi.hProcess);
+                    CloseHandle(pi.hThread);
+                    window_launched = true;
+                    break;
+                }
+            }
+        }
+
+        if (!window_launched) {
+            ShellExecuteA(NULL, "open", target_url.c_str(), NULL, NULL, SW_SHOWNORMAL);
+        }
+#else
+        std::string cmd = "xdg-open \"" + target_url + "\" >/dev/null 2>&1 &";
+        system(cmd.c_str());
+#endif
+    }).detach();
 
     while (g_server_running) {
         socket_t client_sock = accept(server_sock, NULL, NULL);
@@ -532,6 +660,52 @@ void run_web_server(int port) {
 }
 
 int main(int argc, char* argv[]) {
+#ifdef _WIN32
+    // If launched as desktop GUI (no args or --elevated), detach/hide console window completely
+    bool is_cli_mode = (argc >= 2 && (std::string(argv[1]) == "--mcp" || std::string(argv[1]) == "--scan" || std::string(argv[1]) == "--uninstall"));
+    if (!is_cli_mode) {
+        HWND console_hwnd = GetConsoleWindow();
+        if (console_hwnd) {
+            DWORD console_pid = 0;
+            GetWindowThreadProcessId(console_hwnd, &console_pid);
+            if (console_pid == GetCurrentProcessId()) {
+                ShowWindow(console_hwnd, SW_HIDE);
+            }
+        }
+    }
+
+    // Single instance mutex guard for GUI / Server mode
+    HANDLE h_single_instance_mutex = NULL;
+    bool is_elevating = (argc >= 2 && std::string(argv[1]) == "--elevated");
+    if (!is_elevating && (argc < 2 || (std::string(argv[1]) != "--mcp" && std::string(argv[1]) != "--scan"))) {
+        h_single_instance_mutex = CreateMutexA(NULL, TRUE, "Global\\TreeMCP_SingleInstance_Mutex");
+        if (GetLastError() == ERROR_ALREADY_EXISTS) {
+            std::cerr << "[TreeMCP] Another instance is already running. Focusing existing instance.\n";
+            // If already running, notify and exit immediately
+            HWND hwnd_existing = FindWindowA(NULL, "TreeMCP - High Speed Disk Space Analyzer & Hardened MCP Server");
+            if (hwnd_existing) {
+                SetForegroundWindow(hwnd_existing);
+                ShowWindow(hwnd_existing, SW_RESTORE);
+            }
+            if (h_single_instance_mutex) CloseHandle(h_single_instance_mutex);
+            return 0;
+        }
+    } else if (is_elevating) {
+        // Elevated process: wait up to 2 seconds for previous non-elevated instance to close
+        for (int i = 0; i < 20; ++i) {
+            h_single_instance_mutex = CreateMutexA(NULL, TRUE, "Global\\TreeMCP_SingleInstance_Mutex");
+            if (GetLastError() != ERROR_ALREADY_EXISTS) {
+                break;
+            }
+            if (h_single_instance_mutex) {
+                CloseHandle(h_single_instance_mutex);
+                h_single_instance_mutex = NULL;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+#endif
+
     g_session_token = Security::generate_secure_token();
     g_mcp = std::make_unique<McpProtocol>(g_tree, g_scanner);
 
@@ -583,37 +757,13 @@ int main(int argc, char* argv[]) {
     if (argc >= 3 && std::string(argv[1]) == "--serve") {
         port = std::stoi(argv[2]);
     }
-    g_port = port;
 
     std::cout << "=====================================================\n";
     std::cout << "  TreeMCP - Cross-Platform Disk Analyzer & MCP\n";
     std::cout << "=====================================================\n";
     std::cout << "  * Local MCP Server: Active on stdio & http://127.0.0.1:" << port << "/mcp\n";
     std::cout << "  * Session Token:    " << g_session_token.substr(0, 8) << "... [REDACTED 256-bit]\n";
-    std::cout << "  * Desktop UI:       http://127.0.0.1:" << port << "/?token=" << g_session_token << "\n";
     std::cout << "=====================================================\n\n";
-
-    // Launch UI
-    std::thread([port]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(600));
-        std::string target_url = "http://127.0.0.1:" + std::to_string(port) + "/?token=" + g_session_token;
-#ifdef _WIN32
-        std::string edge_path = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
-        std::string cmd = "\"" + edge_path + "\" --app=\"" + target_url + "\" --window-size=1280,820";
-        STARTUPINFOA si{};
-        PROCESS_INFORMATION pi{};
-        si.cb = sizeof(si);
-        if (CreateProcessA(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-            CloseHandle(pi.hProcess);
-            CloseHandle(pi.hThread);
-        } else {
-            ShellExecuteA(NULL, "open", target_url.c_str(), NULL, NULL, SW_SHOWNORMAL);
-        }
-#else
-        std::string cmd = "xdg-open \"" + target_url + "\" >/dev/null 2>&1 &";
-        system(cmd.c_str());
-#endif
-    }).detach();
 
     run_web_server(port);
     return 0;

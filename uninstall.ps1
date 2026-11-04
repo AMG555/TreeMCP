@@ -36,7 +36,16 @@ if (Test-Path $shortcutPath) {
     Write-Host "==> Removed Start Menu shortcut." -ForegroundColor Green
 }
 
-# 3. Remove binary and installation folder
+# 3. Unregister from Windows Control Panel "Add/Remove Programs"
+try {
+    $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TreeMCP"
+    if (Test-Path $regPath) {
+        Remove-Item -Path $regPath -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host "==> Removed Windows Apps & Features registry registration." -ForegroundColor Green
+    }
+} catch {}
+
+# 4. Remove binary and installation folder
 $installDir = "$env:LOCALAPPDATA\TreeMCP"
 if (Test-Path $installDir) {
     Remove-Item -Recurse -Force $installDir -ErrorAction SilentlyContinue

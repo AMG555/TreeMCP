@@ -123,19 +123,23 @@ void TreemapEngine::layout_row(
         tile.depth = current_depth;
         tile.color = tile.is_dir ? "#2c3e50" : FileTree::get_color_for_ext(tree.get_extension(it.node_idx));
 
-        out_tiles.push_back(tile);
-
-        // Recurse into subdirectories if depth allows and bounding box is large enough
-        if (tile.is_dir && current_depth < max_depth && item_w > 12.0 && item_h > 12.0) {
-            double pad = 2.0; // Inset padding for nested directories
+        bool has_sub = false;
+        // Recurse into subdirectories
+        if (tile.is_dir && current_depth < max_depth && item_w > 2.0 && item_h > 2.0) {
             auto sub_tiles = compute_layout(
                 tree, it.node_idx,
-                item_x + pad, item_y + pad,
-                item_w - (pad * 2.0), item_h - (pad * 2.0),
+                item_x, item_y,
+                item_w, item_h,
                 max_depth, min_size_threshold
             );
-            out_tiles.insert(out_tiles.end(), sub_tiles.begin(), sub_tiles.end());
+            if (!sub_tiles.empty()) {
+                has_sub = true;
+                out_tiles.insert(out_tiles.end(), sub_tiles.begin(), sub_tiles.end());
+            }
         }
+
+        // Only emit folder bounding box if it has no drawn children (empty folder) or for hierarchical inspection
+        out_tiles.push_back(tile);
 
         curr_pos += item_len;
     }
