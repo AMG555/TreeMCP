@@ -65,6 +65,13 @@ bool Security::is_path_safe_to_read(const std::string& path) {
     std::string p = path;
     for (char& c : p) c = static_cast<char>(tolower(c));
 
+    // Reject path traversal attacks
+    if (p.find("..\\") != std::string::npos || p.find("../") != std::string::npos ||
+        p.find("\\..") != std::string::npos || p.find("/..") != std::string::npos ||
+        p == ".." || p.find("...") != std::string::npos) {
+        return false;
+    }
+
     if (p.find("\\\\.\\") == 0 || p.find("\\\\?\\") == 0) {
         if (p.size() >= 6 && p.substr(0, 4) == "\\\\.\\" && isalpha(p[4]) && p[5] == ':') {
             return true;
@@ -93,6 +100,26 @@ bool Security::is_path_safe_to_read(const std::string& path) {
 }
 
 bool Security::is_protected_system_path(const std::string& raw_path) {
+    // Unix-style system paths check
+    std::string norm = raw_path;
+    for (char& c : norm) { if (c == '\\') c = '/'; c = static_cast<char>(tolower(c)); }
+    while (norm.size() > 1 && norm.back() == '/') norm.pop_back();
+
+    if (norm == "/" ||
+        norm == "/bin" || norm.find("/bin/") == 0 ||
+        norm == "/boot" || norm.find("/boot/") == 0 ||
+        norm == "/dev" || norm.find("/dev/") == 0 ||
+        norm == "/etc" || norm.find("/etc/") == 0 ||
+        norm == "/lib" || norm.find("/lib/") == 0 ||
+        norm == "/lib64" || norm.find("/lib64/") == 0 ||
+        norm == "/proc" || norm.find("/proc/") == 0 ||
+        norm == "/root" || norm == "/sys" || norm.find("/sys/") == 0 ||
+        norm == "/usr" || norm.find("/usr/") == 0 ||
+        norm == "/sbin" || norm.find("/sbin/") == 0 ||
+        norm == "/home") {
+        return true;
+    }
+
     std::string path = canonicalize_path(raw_path);
     if (path.empty()) return true;
 
@@ -334,8 +361,8 @@ bool Security::is_valid_host_header(const std::string& host_header, int expected
 }
 
 bool Security::contains_dangerous_chars(const std::string& str) {
-    for (char c : str) {
-        if (c == '\0' || c == '\r' || c == '\n') return true;
+    for (unsigned char c : str) {
+        if (c < 32 && c != '\t') return true;
     }
     return false;
 }

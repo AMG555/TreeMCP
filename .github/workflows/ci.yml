@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test-windows:
+    name: Windows (MinGW-w64) - Build, Security & Test Suite
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MinGW GCC
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x64
+
+      - name: Build TreeMCP (Ultra-Lightweight Hardened)
+        run: cmd /c "build.bat"
+
+      - name: Verify Binary Footprint
+        run: |
+          $size = (Get-Item TreeMCP.exe).Length
+          Write-Host "Binary size: $size bytes"
+          if ($size -gt 250000) {
+            Write-Error "Binary size exceeds lightweight threshold (250 KB)"
+            exit 1
+          }
+
+      - name: Run Automated Test Suite (Unit, Security QC, A/B Benchmark)
+        run: cmd /c "run_tests.bat"
+
+  build-and-test-linux:
+    name: Linux (GCC) - Build, Security & Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+
+      - name: Build TreeMCP via Makefile
+        run: make
+
+      - name: Verify Binary Footprint
+        run: |
+          SIZE=$(stat -c%s treemcp)
+          echo "Binary size: $SIZE bytes"
+          if [ $SIZE -gt 250000 ]; then
+            echo "Binary size exceeds lightweight threshold (250 KB)"
+            exit 1
+          fi
+
+      - name: Run Automated Test Suite (Unit, Security QC, A/B Benchmark)
+        run: |
+          chmod +x run_tests.sh
+          ./run_tests.sh

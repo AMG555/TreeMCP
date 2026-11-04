@@ -33,3 +33,4 @@ echo ""
 echo "[SUCCESS] TreeMCP installed successfully!"
 echo "Run GUI: $INSTALL_DIR/treemcp"
 echo "Run MCP: $INSTALL_DIR/treemcp --mcp"
+

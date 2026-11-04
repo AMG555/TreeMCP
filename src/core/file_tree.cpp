@@ -34,7 +34,7 @@ uint32_t FileTree::add_node(const std::string& name, uint64_t size, uint64_t all
                             uint32_t parent_idx, bool is_dir, uint32_t attributes) {
     CompactNode node;
     node.name_offset = static_cast<uint32_t>(string_pool_.size());
-    node.name_len = static_cast<uint32_t>(name.size());
+    node.name_len = static_cast<uint16_t>(name.size());
     string_pool_.insert(string_pool_.end(), name.begin(), name.end());
     string_pool_.push_back('\0'); // safety null terminator
 
@@ -45,7 +45,7 @@ uint32_t FileTree::add_node(const std::string& name, uint64_t size, uint64_t all
     node.next_sibling = INVALID_INDEX;
     node.file_count = is_dir ? 0 : 1;
     node.dir_count = is_dir ? 1 : 0;
-    node.attributes = attributes;
+    node.attributes = static_cast<uint16_t>(attributes);
     node.flags = is_dir ? 1 : 0;
 
     if (!is_dir) {

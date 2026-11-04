@@ -1,5 +1,5 @@
 CXX ?= g++
-CXXFLAGS ?= -O3 -std=c++17 -fstack-protector-strong -D_FORTIFY_SOURCE=2 -Wall -Wextra
+CXXFLAGS ?= -O3 -std=c++17 -flto -s -ffunction-sections -fdata-sections -fno-exceptions -fno-rtti -fstack-protector-strong -D_FORTIFY_SOURCE=2 -Wl,--gc-sections -Wall -Wextra
 LDFLAGS ?= -pthread
 
 SRCS = src/main.cpp \
@@ -22,4 +22,3 @@ clean:
 	rm -f $(TARGET)
 
 .PHONY: all clean
-

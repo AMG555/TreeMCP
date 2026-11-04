@@ -48,3 +48,4 @@ foreach ($cfgPath in $mcpConfigFiles) {
 Write-Host "`n[SUCCESS] TreeMCP installed successfully!" -ForegroundColor Green
 Write-Host "Run GUI: & '$exePath'"
 Write-Host "Run MCP: & '$exePath' --mcp`n"
+

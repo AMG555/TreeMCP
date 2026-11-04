@@ -11,18 +11,18 @@ constexpr uint32_t INVALID_INDEX = 0xFFFFFFFF;
 
 // 48-byte memory-compact node structure for millions of items in minimal RAM
 struct CompactNode {
-    uint32_t name_offset;     // Offset in contiguous string pool
-    uint32_t name_len;        // Length of UTF-8 filename
     uint64_t size;            // Uncompressed file size in bytes
     uint64_t allocated_size;  // On-disk cluster allocated size
+    uint32_t name_offset;     // Offset in contiguous string pool
+    uint16_t name_len;        // Length of UTF-8 filename (up to 65,535 bytes)
+    uint16_t ext_id;          // Interned extension identifier
     uint32_t parent_idx;      // Parent node index (INVALID_INDEX for root)
     uint32_t first_child;     // First child index (INVALID_INDEX if leaf/empty)
     uint32_t next_sibling;    // Next sibling index (INVALID_INDEX if last)
+    uint16_t attributes;      // Win32 FILE_ATTRIBUTE_* flags or POSIX mode
+    uint16_t flags;           // Internal flags (1 = is_directory, 2 = is_reparse)
     uint32_t file_count;      // Subtree total file count
     uint32_t dir_count;       // Subtree total directory count
-    uint32_t attributes;      // Win32 FILE_ATTRIBUTE_* flags or POSIX mode
-    uint16_t ext_id;          // Interned extension identifier
-    uint16_t flags;           // Internal flags (1 = is_directory, 2 = is_reparse)
 
     bool is_directory() const {
         return (flags & 1) != 0;

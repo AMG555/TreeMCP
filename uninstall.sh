@@ -27,3 +27,4 @@ rm -rf "$HOME/.cache/treemcp" "/tmp/treemcp_trash" 2>/dev/null || true
 
 echo ""
 echo "[SUCCESS] TreeMCP completely uninstalled!"
+

@@ -37,3 +37,4 @@ if (Test-Path $installDir) {
 }
 
 Write-Host "`n[SUCCESS] TreeMCP completely uninstalled!" -ForegroundColor Green
+
