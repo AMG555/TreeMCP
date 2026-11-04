@@ -29,7 +29,14 @@ foreach ($cfgPath in $mcpConfigFiles) {
     }
 }
 
-# 2. Remove binary and installation folder
+# 2. Remove Start Menu shortcut
+$shortcutPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\TreeMCP.lnk"
+if (Test-Path $shortcutPath) {
+    Remove-Item -Force $shortcutPath -ErrorAction SilentlyContinue
+    Write-Host "==> Removed Start Menu shortcut." -ForegroundColor Green
+}
+
+# 3. Remove binary and installation folder
 $installDir = "$env:LOCALAPPDATA\TreeMCP"
 if (Test-Path $installDir) {
     Remove-Item -Recurse -Force $installDir -ErrorAction SilentlyContinue
@@ -37,4 +44,3 @@ if (Test-Path $installDir) {
 }
 
 Write-Host "`n[SUCCESS] TreeMCP completely uninstalled!" -ForegroundColor Green
-

@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0e17"/>
+      <stop offset="100%" stop-color="#141c2b"/>
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#20bf6b"/>
+      <stop offset="50%" stop-color="#0fb9b1"/>
+      <stop offset="100%" stop-color="#3867d6"/>
+    </linearGradient>
+    <linearGradient id="trunkGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#0fb9b1"/>
+      <stop offset="100%" stop-color="#20bf6b"/>
+    </linearGradient>
+    <linearGradient id="cyanTile" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00d2d3"/>
+      <stop offset="100%" stop-color="#01a3a4"/>
+    </linearGradient>
+    <linearGradient id="greenTile" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#26de81"/>
+      <stop offset="100%" stop-color="#20bf6b"/>
+    </linearGradient>
+    <linearGradient id="blueTile" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#45aaf2"/>
+      <stop offset="100%" stop-color="#2d98da"/>
+    </linearGradient>
+    <linearGradient id="amberTile" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fed330"/>
+      <stop offset="100%" stop-color="#f7b731"/>
+    </linearGradient>
+    <linearGradient id="purpleTile" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a55eea"/>
+      <stop offset="100%" stop-color="#8854d0"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- App Rounded Base Container -->
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="8"/>
+
+  <!-- Platter Track Concentric Arcs (Disk Roots) -->
+  <path d="M 156 410 A 130 130 0 0 1 356 410" fill="none" stroke="#22324d" stroke-width="4" stroke-dasharray="8 6"/>
+  <path d="M 126 426 A 170 170 0 0 1 386 426" fill="none" stroke="#1d2a40" stroke-width="4" stroke-dasharray="10 8"/>
+  <circle cx="256" cy="420" r="14" fill="#0fb9b1" opacity="0.3"/>
+  <circle cx="256" cy="420" r="7" fill="#20bf6b"/>
+
+  <!-- Data Trunk & Branch Nodes (Neural MCP Backbone) -->
+  <path d="M 256 420 L 256 220" stroke="url(#trunkGrad)" stroke-width="12" stroke-linecap="round"/>
+  <path d="M 256 310 L 170 230" stroke="url(#trunkGrad)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M 256 310 L 342 230" stroke="url(#trunkGrad)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M 256 250 L 140 180" stroke="url(#trunkGrad)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M 256 250 L 372 180" stroke="url(#trunkGrad)" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- Treemap Space Partition Tiles (Tree Crown) -->
+  <!-- Top Center Primary Green Tile -->
+  <rect x="206" y="80" width="100" height="85" rx="12" fill="url(#greenTile)" filter="url(#glow)"/>
+  <rect x="216" y="90" width="40" height="30" rx="6" fill="#ffffff" opacity="0.25"/>
+
+  <!-- Top Left Cyan Tile -->
+  <rect x="110" y="100" width="84" height="74" rx="12" fill="url(#cyanTile)"/>
+  <rect x="118" y="108" width="30" height="25" rx="6" fill="#ffffff" opacity="0.25"/>
+
+  <!-- Top Right Sapphire Tile -->
+  <rect x="318" y="100" width="84" height="74" rx="12" fill="url(#blueTile)"/>
+  <rect x="326" y="108" width="30" height="25" rx="6" fill="#ffffff" opacity="0.25"/>
+
+  <!-- Mid Left Amber Tile -->
+  <rect x="75" y="190" width="80" height="65" rx="10" fill="url(#amberTile)"/>
+  <rect x="83" y="198" width="28" height="20" rx="5" fill="#ffffff" opacity="0.25"/>
+
+  <!-- Mid Left Nested Emerald Tile -->
+  <rect x="165" y="190" width="75" height="65" rx="10" fill="url(#greenTile)"/>
+
+  <!-- Mid Right Purple Tile (MCP Neural) -->
+  <rect x="357" y="190" width="80" height="65" rx="10" fill="url(#purpleTile)"/>
+  <rect x="365" y="198" width="28" height="20" rx="5" fill="#ffffff" opacity="0.25"/>
+
+  <!-- Mid Right Nested Cyan Tile -->
+  <rect x="272" y="190" width="75" height="65" rx="10" fill="url(#cyanTile)"/>
+
+  <!-- Lower Left Sub-tile -->
+  <rect x="120" y="270" width="60" height="48" rx="8" fill="url(#blueTile)"/>
+
+  <!-- Lower Right Sub-tile -->
+  <rect x="332" y="270" width="60" height="48" rx="8" fill="url(#amberTile)"/>
+
+  <!-- Connection Nodes / Spark Rings (MCP Active Indicators) -->
+  <circle cx="206" cy="190" r="5" fill="#ffffff"/>
+  <circle cx="306" cy="190" r="5" fill="#ffffff"/>
+  <circle cx="256" cy="165" r="5" fill="#ffffff"/>
+  <circle cx="150" cy="270" r="4" fill="#ffffff"/>
+  <circle cx="362" cy="270" r="4" fill="#ffffff"/>
+</svg>

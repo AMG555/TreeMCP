@@ -15,16 +15,15 @@ if [ -f "$CLAUDE_CONFIG" ]; then
     fi
 fi
 
-# 2. Remove binary
+# 2. Remove binary, desktop entry, and icon
 INSTALL_DIR="$HOME/.local/bin"
-if [ -f "$INSTALL_DIR/treemcp" ]; then
-    rm -f "$INSTALL_DIR/treemcp"
-    echo "==> Removed binary: $INSTALL_DIR/treemcp"
-fi
+rm -f "$INSTALL_DIR/treemcp"
+rm -f "$HOME/.local/share/applications/treemcp.desktop"
+rm -f "$HOME/.local/share/icons/hicolor/scalable/apps/treemcp.svg"
+echo "==> Removed binary, desktop entry, and system icons."
 
 # 3. Clean any temp/cache files
 rm -rf "$HOME/.cache/treemcp" "/tmp/treemcp_trash" 2>/dev/null || true
 
 echo ""
 echo "[SUCCESS] TreeMCP completely uninstalled!"
-

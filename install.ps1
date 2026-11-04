@@ -14,6 +14,20 @@ Invoke-WebRequest -Uri $downloadUrl -OutFile $exePath -UseBasicParsing
 
 Write-Host "==> TreeMCP binary installed at: $exePath" -ForegroundColor Green
 
+# Create Start Menu Application Shortcut
+try {
+    $shortcutPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\TreeMCP.lnk"
+    $wsh = New-Object -ComObject WScript.Shell
+    $shortcut = $wsh.CreateShortcut($shortcutPath)
+    $shortcut.TargetPath = $exePath
+    $shortcut.WorkingDirectory = $installDir
+    $shortcut.Description = "TreeMCP - High Speed Disk Space Analyzer & MCP Server"
+    $shortcut.Save()
+    Write-Host "==> Start Menu shortcut created: $shortcutPath" -ForegroundColor Green
+} catch {
+    # Non-fatal if shortcut creation fails
+}
+
 # Register in MCP config files if present
 $mcpConfigFiles = @(
     "$env:USERPROFILE\.gemini\config\mcp_config.json",
@@ -48,4 +62,3 @@ foreach ($cfgPath in $mcpConfigFiles) {
 Write-Host "`n[SUCCESS] TreeMCP installed successfully!" -ForegroundColor Green
 Write-Host "Run GUI: & '$exePath'"
 Write-Host "Run MCP: & '$exePath' --mcp`n"
-

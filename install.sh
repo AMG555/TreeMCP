@@ -3,7 +3,10 @@
 set -euo pipefail
 
 INSTALL_DIR="$HOME/.local/bin"
-mkdir -p "$INSTALL_DIR"
+DESKTOP_DIR="$HOME/.local/share/applications"
+ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
+
+mkdir -p "$INSTALL_DIR" "$DESKTOP_DIR" "$ICON_DIR"
 
 echo "==> Cloning and building TreeMCP..."
 TMP_DIR=$(mktemp -d)
@@ -12,6 +15,17 @@ make -C "$TMP_DIR"
 
 mv "$TMP_DIR/treemcp" "$INSTALL_DIR/treemcp"
 chmod +x "$INSTALL_DIR/treemcp"
+
+# Install Desktop file and icon for system app launcher
+if [ -f "$TMP_DIR/treemcp.desktop" ]; then
+    cp "$TMP_DIR/treemcp.desktop" "$DESKTOP_DIR/treemcp.desktop"
+    chmod +x "$DESKTOP_DIR/treemcp.desktop"
+fi
+
+if [ -f "$TMP_DIR/assets/logo.svg" ]; then
+    cp "$TMP_DIR/assets/logo.svg" "$ICON_DIR/treemcp.svg"
+fi
+
 rm -rf "$TMP_DIR"
 
 echo "==> TreeMCP installed to: $INSTALL_DIR/treemcp"
@@ -33,4 +47,3 @@ echo ""
 echo "[SUCCESS] TreeMCP installed successfully!"
 echo "Run GUI: $INSTALL_DIR/treemcp"
 echo "Run MCP: $INSTALL_DIR/treemcp --mcp"
-

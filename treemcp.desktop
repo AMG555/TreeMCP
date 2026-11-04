@@ -1,0 +1,16 @@
+[Desktop Entry]
+Name=TreeMCP
+GenericName=Disk Space Analyzer
+Comment=High Speed Disk Space Analyzer & Model Context Protocol (MCP) Server
+Exec=treemcp
+Icon=treemcp
+Terminal=false
+Type=Application
+Categories=Utility;System;Filesystem;
+Keywords=disk;space;analyzer;cleanup;mft;treemap;mcp;
+StartupNotify=true
+Actions=HeadlessMCP;
+
+[Desktop Action HeadlessMCP]
+Name=Start MCP Server
+Exec=treemcp --mcp

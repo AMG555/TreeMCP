@@ -36,6 +36,7 @@ using socket_t = int;
 #include "core/security.h"
 #include "mcp/mcp_protocol.h"
 #include "mcp/token_optimizer.h"
+#include "ui/embedded_assets.h"
 
 using namespace TreeMCP;
 
@@ -46,14 +47,16 @@ static std::atomic<bool> g_server_running{true};
 static std::string g_session_token;
 static int g_port = 4242;
 
-// Read local static file
+// Read local static file with embedded fallback for standalone distribution
 std::string read_static_file(const std::string& rel_path) {
     std::string full_path = "src/ui/" + rel_path;
     std::ifstream f(full_path, std::ios::binary);
-    if (!f.is_open()) return "";
-    std::ostringstream ss;
-    ss << f.rdbuf();
-    return ss.str();
+    if (f.is_open()) {
+        std::ostringstream ss;
+        ss << f.rdbuf();
+        return ss.str();
+    }
+    return EmbeddedAssets::get_asset(rel_path);
 }
 
 // Fast JSON serializer for Treemap Tiles
@@ -255,6 +258,12 @@ void handle_http_client(socket_t client_sock) {
         } else if (clean_uri == "/treemap_renderer.js") {
             content_type = "application/javascript; charset=UTF-8";
             body = read_static_file("treemap_renderer.js");
+        } else if (clean_uri == "/favicon.ico") {
+            content_type = "image/x-icon";
+            body = read_static_file("favicon.ico");
+        } else if (clean_uri == "/logo.svg") {
+            content_type = "image/svg+xml";
+            body = read_static_file("logo.svg");
         } else if (clean_uri == "/api/drives") {
             content_type = "application/json";
             auto drives = FastScanner::list_drives();

@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/logo.png" alt="TreeMCP Logo" width="128" height="128">
+
 # 🌳 TreeMCP
 
 ### Ultra-Fast Lightweight Disk Space Analyzer & Hardened Model Context Protocol (MCP) Server

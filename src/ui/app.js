@@ -51,11 +51,22 @@ function setupTabs() {
 }
 
 function setupEventListeners() {
-  document.getElementById('btn-scan').addEventListener('click', () => {
+  const triggerScan = () => {
     const customPath = document.getElementById('custom-path').value.trim();
     const driveSelect = document.getElementById('drive-select').value;
     const pathToScan = customPath || driveSelect;
     startScan(pathToScan);
+  };
+
+  document.getElementById('btn-scan').addEventListener('click', triggerScan);
+
+  const btnRefresh = document.getElementById('btn-refresh');
+  if (btnRefresh) {
+    btnRefresh.addEventListener('click', triggerScan);
+  }
+
+  document.getElementById('custom-path').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') triggerScan();
   });
 
   document.getElementById('drive-select').addEventListener('change', (e) => {
@@ -64,6 +75,38 @@ function setupEventListeners() {
 
   document.getElementById('search-filter').addEventListener('input', (e) => {
     filterTree(e.target.value);
+  });
+
+  // Modal Dialogs
+  const modalAbout = document.getElementById('modal-about');
+  const btnAbout = document.getElementById('btn-about');
+  const modalClose = document.getElementById('modal-close');
+  const modalOk = document.getElementById('modal-ok-btn');
+
+  if (btnAbout && modalAbout) {
+    btnAbout.addEventListener('click', () => modalAbout.style.display = 'flex');
+    modalClose.addEventListener('click', () => modalAbout.style.display = 'none');
+    modalOk.addEventListener('click', () => modalAbout.style.display = 'none');
+    modalAbout.addEventListener('click', (e) => {
+      if (e.target === modalAbout) modalAbout.style.display = 'none';
+    });
+  }
+
+  // Keyboard Shortcuts
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
+      e.preventDefault();
+      triggerScan();
+    } else if (e.ctrlKey && e.key === 'f') {
+      e.preventDefault();
+      document.getElementById('search-filter').focus();
+    } else if (e.ctrlKey && e.key === 'd') {
+      e.preventDefault();
+      document.getElementById('drive-select').focus();
+    } else if (e.key === 'Escape') {
+      if (modalAbout) modalAbout.style.display = 'none';
+      document.getElementById('context-menu').style.display = 'none';
+    }
   });
 
   // Context Menu
@@ -99,6 +142,36 @@ function setupEventListeners() {
       logMcpAction(`Security Inspected: ${contextTarget.full_path} (${treemapRenderer.formatSize(contextTarget.size)})`);
     }
   });
+
+  const ctxRecycle = document.getElementById('ctx-safe-recycle');
+  if (ctxRecycle) {
+    ctxRecycle.addEventListener('click', async () => {
+      if (!contextTarget || !contextTarget.full_path) return;
+      const targetPath = contextTarget.full_path;
+      if (confirm(`Move "${targetPath}" safely to the Recycle Bin / Trash?\n\n(Protected system paths like C:\\Windows or /etc are automatically blocked).`)) {
+        try {
+          const res = await secureFetch('/api/clean?path=' + encodeURIComponent(targetPath) + '&dry_run=false');
+          const data = await res.json();
+          if (data.success) {
+            alert(`Item successfully relocated to Recycle Bin / Trash.`);
+            triggerScan();
+          } else {
+            alert(`Operation blocked: ${data.message || 'Protected system file or access denied.'}`);
+          }
+        } catch (err) {
+          alert(`Error communicating with backend: ${err.message}`);
+        }
+      }
+    });
+  }
+
+  const ctxProps = document.getElementById('ctx-properties');
+  if (ctxProps) {
+    ctxProps.addEventListener('click', () => {
+      if (!contextTarget) return;
+      alert(`Properties for: ${contextTarget.name}\n\nFull Path: ${contextTarget.full_path}\nSize: ${treemapRenderer.formatSize(contextTarget.size)}\nType: ${contextTarget.is_dir ? 'Directory' : 'File'}`);
+    });
+  }
 }
 
 async function loadDrives() {
