@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TreeMCP - High Speed Disk Space Analyzer & Hardened MCP Server</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Top Toolbar -->
+  <header class="toolbar">
+    <div class="brand">
+      <span class="logo-icon">🌳</span>
+      <span>TreeMCP</span>
+      <span class="mcp-badge">MCP ONLINE</span>
+      <span class="mcp-badge" style="background: linear-gradient(135deg, #3867d6, #20bf6b);">🛡️ SHIELD ACTIVE</span>
+    </div>
+
+    <select id="drive-select" class="drive-select">
+      <option value="C:\">C: [Scanning drives...]</option>
+    </select>
+
+    <input type="text" id="custom-path" class="custom-path-input" placeholder="Select drive or custom folder path...">
+
+    <button id="btn-scan" class="btn">
+      <span>▶</span>
+      <span>Scan</span>
+    </button>
+
+    <input type="text" id="search-filter" class="search-input" placeholder="Filter: *.iso, >100MB...">
+  </header>
+
+  <!-- Drive Usage Gauge Strip -->
+  <section class="usage-strip">
+    <div class="usage-bar-container">
+      <div id="drive-usage-fill" class="usage-bar-fill" style="width: 45%;"></div>
+      <div id="drive-usage-text" class="usage-bar-text">Loading drive space metrics...</div>
+    </div>
+    <div class="stats-badges">
+      <div class="stats-badge">Files: <span id="stat-files">0</span></div>
+      <div class="stats-badge">Folders: <span id="stat-folders">0</span></div>
+      <div class="stats-badge">Size: <span id="stat-size">0 B</span></div>
+      <div class="stats-badge">Time: <span id="stat-time">0.00s</span></div>
+    </div>
+  </section>
+
+  <!-- Main Split Layout -->
+  <main class="main-content">
+    
+    <!-- Upper Split: Tabs View -->
+    <div class="split-top">
+      <div class="tab-headers">
+        <div class="tab-header active" data-target="pane-tree">
+          <span>📁</span>
+          <span>Tree View</span>
+        </div>
+        <div class="tab-header" data-target="pane-ext">
+          <span>📊</span>
+          <span>File Extension Breakdown</span>
+        </div>
+        <div class="tab-header" data-target="pane-mcp">
+          <span>⚡</span>
+          <span>MCP Server & Security Guard</span>
+        </div>
+      </div>
+
+      <div class="tab-content">
+        <!-- Tree View Pane -->
+        <div id="pane-tree" class="tab-pane" style="display: block;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 38%;">Name</th>
+                <th style="width: 14%;">% Parent</th>
+                <th style="width: 12%;">Size</th>
+                <th style="width: 12%;">Allocated</th>
+                <th style="width: 12%;">Files</th>
+                <th style="width: 12%;">Folders</th>
+              </tr>
+            </thead>
+            <tbody id="tree-table-body">
+              <tr>
+                <td colspan="6" style="text-align: center; color: #777; padding: 24px;">
+                  Select a drive above and click <b>Scan</b> to begin.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Extensions Pane -->
+        <div id="pane-ext" class="tab-pane" style="display: none;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 30%;">Extension</th>
+                <th style="width: 25%;">Total Size</th>
+                <th style="width: 25%;">% of Drive</th>
+                <th style="width: 20%;">File Count</th>
+              </tr>
+            </thead>
+            <tbody id="ext-table-body">
+              <tr>
+                <td colspan="4" style="text-align: center; color: #777; padding: 24px;">
+                  No scan data available.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- MCP Inspector Pane -->
+        <div id="pane-mcp" class="tab-pane" style="display: none; height: 100%;">
+          <div class="mcp-panel">
+            <div class="mcp-metrics-row">
+              <div class="metric-card">
+                <div class="title">Queries Handled</div>
+                <div id="mcp-stat-queries" class="value">0</div>
+              </div>
+              <div class="metric-card">
+                <div class="title">Tokens Consumed (TreeMCP)</div>
+                <div id="mcp-stat-tokens-used" class="value">0</div>
+              </div>
+              <div class="metric-card">
+                <div class="title">Tokens Saved vs Standard JSON</div>
+                <div id="mcp-stat-tokens-saved" class="value savings">0</div>
+              </div>
+              <div class="metric-card">
+                <div class="title">Token Efficiency</div>
+                <div id="mcp-stat-savings-pct" class="value savings">94.8%</div>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; font-size: 11px; color: #20bf6b; background: rgba(32, 191, 107, 0.1); border: 1px solid #20bf6b; border-radius: 4px; padding: 8px 12px;">
+              <span>🛡️ <b>Active Security Guardrails:</b></span>
+              <span>• Windows Recycle Bin Safe-Delete</span>
+              <span>• Anti-DNS Rebinding Host Validation</span>
+              <span>• 256-bit Session Token (Anti-CSRF)</span>
+              <span>• Protected System Path Blacklist</span>
+              <span>• 64 KB Payload Cap</span>
+            </div>
+
+            <div class="mcp-log-container" id="mcp-log">
+              <div>[Security Guard Active] Listening for AI agent tool invocations...</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Lower Split: Interactive Treemap -->
+    <div class="split-bottom">
+      <div class="treemap-toolbar">
+        <div class="breadcrumb-trail" id="breadcrumb-trail">
+          <span class="breadcrumb-item">Drive Root</span>
+        </div>
+        <div style="color: #888;">
+          Double-click folder to drill down | Right-click for options
+        </div>
+      </div>
+
+      <div class="canvas-wrapper">
+        <canvas id="treemap-canvas"></canvas>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Status Bar -->
+  <footer class="status-bar">
+    <div class="status-left">
+      <span id="status-text">Ready.</span>
+      <span id="status-selected" style="color: #fff; font-family: monospace;"></span>
+    </div>
+    <div class="status-right">
+      <div class="status-mcp-online">
+        <span class="status-dot"></span>
+        <span>MCP 2024-11-05 Secure Active</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Floating Tooltip -->
+  <div id="treemap-tooltip" class="treemap-tooltip"></div>
+
+  <!-- Context Menu -->
+  <div id="context-menu" class="context-menu">
+    <div class="context-menu-item" id="ctx-copy-path">📋 Copy Path</div>
+    <div class="context-menu-item" id="ctx-open-explorer">📂 Open in File Explorer</div>
+    <div class="context-menu-item" id="ctx-mcp-inspect">⚡ Inspect with MCP</div>
+  </div>
+
+  <script src="treemap_renderer.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

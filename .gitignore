@@ -1,0 +1,22 @@
+# Build artifacts
+*.o
+*.obj
+*.pdb
+*.ilk
+
+# Executables (optional: keep TreeMCP.exe if user wants binary in repo, or ignore if building from source)
+# Commented out so users clone and run immediately, or track if preferred:
+# TreeMCP.exe
+
+# Editor & OS files
+.vscode/
+.idea/
+*.swp
+*~
+Thumbs.db
+Desktop.ini
+
+# Logs & temp
+*.log
+scratch/
+tmp/
