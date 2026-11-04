@@ -28,7 +28,7 @@ public:
         bool was_protected;
         std::string error_message;
     };
-    static DeleteResult safe_recycle_item(const std::string& path);
+    static DeleteResult safe_recycle_item(const std::string& path, bool force_system_override = false);
 
     // Canonicalize path to absolute form without dots or relative segments
     static std::string canonicalize_path(const std::string& path);

@@ -136,10 +136,11 @@ std::string McpProtocol::handle_tools_list(const std::string& id) {
         "},"
         "{"
             "\"name\":\"treemcp_clean\","
-            "\"description\":\"Safely preview or delete a space-consuming directory or file. Uses Windows Recycle Bin and blocks protected system paths.\","
+            "\"description\":\"Safely preview or delete a space-consuming directory or file. For protected system or personal paths (C:\\\\Windows, Program Files, User Profile), requires asking the user first and passing confirm_override=true.\","
             "\"inputSchema\":{\"type\":\"object\",\"properties\":{"
                 "\"path\":{\"type\":\"string\",\"description\":\"Path to clean/delete\"},"
-                "\"dry_run\":{\"type\":\"boolean\",\"description\":\"If true, only previews space to be reclaimed without deleting (default true)\"}"
+                "\"dry_run\":{\"type\":\"boolean\",\"description\":\"If true, only previews space to be reclaimed without deleting (default true)\"},"
+                "\"confirm_override\":{\"type\":\"boolean\",\"description\":\"Explicit confirmation flag required when deleting protected system or root paths after user consent\"}"
             "},\"required\":[\"path\"]}"
         "}"
         "]}";
@@ -243,22 +244,25 @@ std::string McpProtocol::handle_tools_call(const std::string& id, const std::str
     else if (tool_name == "treemcp_clean") {
         std::string path_str = parse_json_field(args_json, "path");
         std::string dry_run_str = parse_json_field(args_json, "dry_run");
+        std::string override_str = parse_json_field(args_json, "confirm_override");
         bool dry_run = (dry_run_str == "true" || dry_run_str.empty());
+        bool confirm_override = (override_str == "true");
 
         if (path_str.empty()) {
             return make_json_rpc_error(id, -32602, "Path is required for treemcp_clean.");
         }
 
-        // 1. Critical security check: Protected system directory check
-        if (Security::is_protected_system_path(path_str)) {
-            text_result = "[BLOCKED BY SECURITY POLICY] Path '" + path_str + "' is a protected system directory or root filesystem. Deletion denied.";
-            standard_tokens = 30;
+        bool is_protected = Security::is_protected_system_path(path_str);
+
+        if (is_protected && !confirm_override) {
+            text_result = "[USER CONFIRMATION REQUIRED] Path '" + path_str + "' is a system directory or protected personal path. Ask the user for explicit confirmation before proceeding, then re-call with confirm_override=true.";
+            standard_tokens = 40;
         } else if (dry_run) {
-            text_result = "[DRY RUN SAFE PREVIEW] Would move to Recycle Bin / Trash: " + path_str + ". Pass dry_run=false to execute.";
-            standard_tokens = 30;
+            text_result = "[DRY RUN SAFE PREVIEW] Would move to Recycle Bin / Trash: " + path_str + " (Protected path: " + (is_protected ? "YES" : "NO") + "). Pass dry_run=false" + (is_protected ? " and confirm_override=true" : "") + " to execute.";
+            standard_tokens = 40;
         } else {
-            // Safe deletion via Windows Recycle Bin / Linux Trash (non-destructive)
-            auto del_res = Security::safe_recycle_item(path_str);
+            // Safe deletion via Windows Recycle Bin / Linux Trash (non-destructive) with elevated permissions
+            auto del_res = Security::safe_recycle_item(path_str, confirm_override);
             if (del_res.success) {
                 text_result = "[SUCCESS] Safely moved to Recycle Bin / Trash: " + path_str;
             } else {

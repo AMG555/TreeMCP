@@ -331,23 +331,27 @@ bool Security::is_protected_system_path(const std::string& raw_path) {
 // 5. NON-DESTRUCTIVE SAFE RECYCLE (WINDOWS RECYCLE BIN / LINUX TRASH)
 // =========================================================================
 
-Security::DeleteResult Security::safe_recycle_item(const std::string& raw_path) {
+Security::DeleteResult Security::safe_recycle_item(const std::string& raw_path, bool force_system_override) {
     DeleteResult res;
     res.success = false;
     res.was_protected = false;
 
-    if (is_protected_system_path(raw_path)) {
-        res.was_protected = true;
-        res.error_message = "Path is protected by system security policy and cannot be deleted.";
-        return res;
+    if (!force_system_override) {
+        if (is_protected_system_path(raw_path)) {
+            res.was_protected = true;
+            res.error_message = "Path is protected by system security policy and cannot be deleted without explicit confirmation.";
+            return res;
+        }
+
+        std::string path_chk = canonicalize_path(raw_path);
+        if (is_protected_system_path(path_chk)) {
+            res.was_protected = true;
+            res.error_message = "Path is protected by system security policy and cannot be deleted without explicit confirmation.";
+            return res;
+        }
     }
 
     std::string path = canonicalize_path(raw_path);
-    if (is_protected_system_path(path)) {
-        res.was_protected = true;
-        res.error_message = "Path is protected by system security policy and cannot be deleted.";
-        return res;
-    }
 
 #ifdef _WIN32
     int wlen = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, NULL, 0);
