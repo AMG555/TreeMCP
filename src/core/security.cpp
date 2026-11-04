@@ -272,6 +272,12 @@ bool Security::is_protected_system_path(const std::string& raw_path) {
         }
     }
 
+    // 3. User Personal Data Safeguards (Prevent AI agents from deleting desktop, documents, pictures, codebases)
+    std::vector<std::string> protected_user_subdirs = {
+        "\\desktop", "\\documents", "\\pictures", "\\videos", "\\music",
+        "\\downloads", "\\onedrive", "\\contacts", "\\favorites", "\\links", "\\saved games", "\\searches"
+    };
+
     wchar_t user_prof[MAX_PATH] = {0};
     if (GetEnvironmentVariableW(L"USERPROFILE", user_prof, MAX_PATH)) {
         int sz = WideCharToMultiByte(CP_UTF8, 0, user_prof, -1, NULL, 0, NULL, NULL);
@@ -281,12 +287,41 @@ bool Security::is_protected_system_path(const std::string& raw_path) {
             WideCharToMultiByte(CP_UTF8, 0, user_prof, -1, &s_prof[0], sz, NULL, NULL);
             if (!s_prof.empty() && s_prof.back() == '\0') s_prof.pop_back();
             for (char& c : s_prof) { if (c == '/') c = '\\'; c = static_cast<char>(tolower(c)); }
+
+            // Block entire user profile root
             if (win_p == s_prof) return true;
+
+            // Block user primary personal folders
+            for (const auto& udir : protected_user_subdirs) {
+                std::string full_u = s_prof + udir;
+                if (win_p == full_u) return true;
+            }
         }
+    }
+
+    // 4. Source Code and Git Repository Guardrail (Prevent agents from deleting git databases or project roots)
+    if (win_p.find("\\.git") != std::string::npos || win_p.find("/.git") != std::string::npos ||
+        win_p.find("\\.ssh") != std::string::npos || win_p.find("/.ssh") != std::string::npos ||
+        win_p.find("\\.aws") != std::string::npos || win_p.find("/.aws") != std::string::npos ||
+        win_p.find("\\.gnupg") != std::string::npos || win_p.find("/.gnupg") != std::string::npos) {
+        return true;
     }
 #else
     const char* home = getenv("HOME");
-    if (home && norm == home) return true;
+    if (home) {
+        std::string s_home(home);
+        if (norm == s_home) return true;
+        std::vector<std::string> user_dirs = {
+            "/Desktop", "/Documents", "/Pictures", "/Videos", "/Music", "/Downloads"
+        };
+        for (const auto& ud : user_dirs) {
+            if (norm == s_home + ud) return true;
+        }
+    }
+    if (norm.find("/.git") != std::string::npos || norm.find("/.ssh") != std::string::npos ||
+        norm.find("/.aws") != std::string::npos || norm.find("/.gnupg") != std::string::npos) {
+        return true;
+    }
 #endif
 
     return false;
