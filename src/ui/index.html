@@ -10,232 +10,308 @@
 </head>
 <body>
 
-  <!-- Top Native-Feel Desktop Ribbon -->
-  <header class="desktop-ribbon">
-    <div class="ribbon-left">
-      <div class="brand">
-        <img src="logo.svg" alt="TreeMCP Logo" class="brand-logo" width="22" height="22">
-        <span class="brand-title">TreeMCP</span>
-        <span class="brand-version">v1.1.0</span>
+  <!-- Native Desktop Window Frame Header -->
+  <div class="window-shell">
+
+    <!-- 1. Native Desktop Menu Bar -->
+    <nav class="desktop-menubar">
+      <div class="menu-item" id="menu-file">
+        <span class="menu-label">File</span>
+        <div class="menu-dropdown">
+          <div class="menu-entry" id="m-open-path"><span class="m-text">Select Directory...</span><span class="m-key">Ctrl+O</span></div>
+          <div class="menu-entry" id="m-rescan"><span class="m-text">Rescan Directory</span><span class="m-key">F5</span></div>
+          <div class="menu-entry" id="m-export-csv"><span class="m-text">Export Scan to CSV...</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-entry" id="m-exit"><span class="m-text">Exit</span><span class="m-key">Alt+F4</span></div>
+        </div>
       </div>
 
-      <div class="ribbon-sep"></div>
-
-      <!-- Drive Selector with Integrated Capacity Info -->
-      <div class="drive-picker-wrap">
-        <label for="drive-select" class="ribbon-label">Drive:</label>
-        <select id="drive-select" class="ribbon-select" title="Select Drive (Ctrl+D)">
-          <option value="C:\">C: [Scanning drives...]</option>
-        </select>
+      <div class="menu-item" id="menu-scan">
+        <span class="menu-label">Scan</span>
+        <div class="menu-dropdown">
+          <div class="menu-entry" id="m-scan-now"><span class="m-text">Start Scan</span><span class="m-key">Enter</span></div>
+          <div class="menu-entry" id="m-elevate-admin"><span class="m-text">Restart as Administrator (MFT Mode)</span><span class="m-key">Ctrl+Shift+A</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-entry" id="m-clear-cache"><span class="m-text">Clear Scan Tree</span></div>
+        </div>
       </div>
 
-      <!-- Path Input -->
-      <div class="path-input-wrap">
-        <input type="text" id="custom-path" class="ribbon-input path-input" placeholder="Path (e.g. C:\ or C:\Users)" title="Target Path">
+      <div class="menu-item" id="menu-view">
+        <span class="menu-label">View</span>
+        <div class="menu-dropdown">
+          <div class="menu-entry" id="m-view-tree"><span class="m-text">Directory Tree Table</span></div>
+          <div class="menu-entry" id="m-view-hogs"><span class="m-text">Top 100 Largest Files</span></div>
+          <div class="menu-entry" id="m-view-dups"><span class="m-text">Duplicate Candidate Finder</span></div>
+          <div class="menu-entry" id="m-view-ext"><span class="m-text">File Type Statistics</span></div>
+          <div class="menu-entry" id="m-view-mcp"><span class="m-text">MCP AI Assistant Configuration</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-entry" id="m-reset-panels"><span class="m-text">Reset Splitter Position</span></div>
+        </div>
       </div>
 
-      <!-- Action Buttons -->
-      <button id="btn-scan" class="ribbon-btn btn-primary" title="Start High-Speed Scan (Enter)">
-        <span class="btn-icon">▶</span>
-        <span>Scan</span>
-      </button>
-
-      <button id="btn-refresh" class="ribbon-btn btn-secondary" title="Rescan Directory (F5)">
-        <span class="btn-icon">🔄</span>
-        <span>Rescan</span>
-      </button>
-
-      <button id="btn-elevate" class="ribbon-btn btn-warning" style="display: none;" title="Restart with Administrator privileges for 1-second MFT raw drive scanning">
-        <span class="btn-icon">⚡</span>
-        <span>Run as Admin</span>
-      </button>
-
-      <button id="btn-export-csv" class="ribbon-btn btn-secondary" title="Export current scan data to CSV">
-        <span class="btn-icon">📥</span>
-        <span>Export CSV</span>
-      </button>
-
-      <div class="ribbon-sep"></div>
-
-      <!-- Live Filter -->
-      <div class="filter-wrap">
-        <span class="filter-icon">🔍</span>
-        <input type="text" id="search-filter" class="ribbon-input filter-input" placeholder="Filter files (Ctrl+F)...">
-      </div>
-    </div>
-
-    <div class="ribbon-right">
-      <div class="scan-quick-stats" id="quick-stats">
-        <span class="stat-item"><span class="stat-lbl">Files:</span> <b id="stat-files">0</b></span>
-        <span class="stat-item"><span class="stat-lbl">Folders:</span> <b id="stat-folders">0</b></span>
-        <span class="stat-item"><span class="stat-lbl">Total:</span> <b id="stat-size">0 B</b></span>
-        <span class="stat-item"><span class="stat-lbl">Time:</span> <b id="stat-time" class="stat-highlight">0.00s</b></span>
+      <div class="menu-item" id="menu-tools">
+        <span class="menu-label">Tools</span>
+        <div class="menu-dropdown">
+          <div class="menu-entry" id="m-tool-recycle"><span class="m-text">Move Selected to Recycle Bin</span><span class="m-key">Del</span></div>
+          <div class="menu-entry" id="m-tool-explorer"><span class="m-text">Open in Windows Explorer</span><span class="m-key">Ctrl+E</span></div>
+          <div class="menu-entry" id="m-tool-copy"><span class="m-text">Copy Full Path</span><span class="m-key">Ctrl+C</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-entry" id="m-tool-inspect"><span class="m-text">Inspect via MCP</span></div>
+        </div>
       </div>
 
-      <button id="btn-about" class="ribbon-btn btn-ghost" title="About TreeMCP & Security Guardrails">
-        <span>About</span>
-      </button>
-    </div>
-  </header>
-
-  <!-- Main Viewport with Draggable Splitter -->
-  <main class="main-viewport" id="viewport">
-
-    <!-- Upper View: Segmented Tables -->
-    <section class="split-pane split-top" id="pane-upper">
-      <div class="tab-bar">
-        <button class="tab-btn active" data-target="pane-tree">
-          <span class="tab-icon">📁</span>
-          <span>Tree View</span>
-        </button>
-        <button class="tab-btn" data-target="pane-top-hogs">
-          <span class="tab-icon">🔥</span>
-          <span>Top 100 Files</span>
-        </button>
-        <button class="tab-btn" data-target="pane-duplicates">
-          <span class="tab-icon">👯</span>
-          <span>Duplicates</span>
-        </button>
-        <button class="tab-btn" data-target="pane-ext">
-          <span class="tab-icon">📊</span>
-          <span>File Types</span>
-        </button>
-        <button class="tab-btn" data-target="pane-mcp">
-          <span class="tab-icon">⚡</span>
-          <span>MCP Server</span>
-        </button>
-
-        <div class="tab-bar-spacer"></div>
-        <div id="drive-usage-badge" class="drive-usage-badge">Drive Space: Calculating...</div>
+      <div class="menu-item" id="menu-help">
+        <span class="menu-label">Help</span>
+        <div class="menu-dropdown">
+          <div class="menu-entry" id="m-help-github"><span class="m-text">GitHub Project Page</span></div>
+          <div class="menu-entry" id="m-help-mcp-spec"><span class="m-text">Model Context Protocol Reference</span></div>
+          <div class="menu-divider"></div>
+          <div class="menu-entry" id="m-help-about"><span class="m-text">About TreeMCP...</span><span class="m-key">F1</span></div>
+        </div>
       </div>
 
-      <div class="tab-body">
-        <!-- Tab 1: Tree View -->
-        <div id="pane-tree" class="tab-content-pane active">
-          <div class="table-container">
-            <table class="grid-table" id="tree-table">
-              <thead>
-                <tr>
-                  <th class="col-name" style="width: 38%;">Name</th>
-                  <th class="col-pct" style="width: 14%;">% Parent</th>
-                  <th class="col-size" style="width: 12%;">Size</th>
-                  <th class="col-alloc" style="width: 12%;">Allocated</th>
-                  <th class="col-num" style="width: 12%;">Files</th>
-                  <th class="col-num" style="width: 12%;">Folders</th>
-                </tr>
-              </thead>
-              <tbody id="tree-table-body">
-                <tr>
-                  <td colspan="6" class="table-placeholder">
-                    Select a drive above and click <b>Scan</b> to analyze storage.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+      <div class="menubar-spacer"></div>
+      <div class="menubar-brand">
+        <img src="logo.svg" alt="" width="14" height="14" class="brand-glyph">
+        <span class="brand-text">TreeMCP</span>
+        <span class="brand-ver">v1.1.0</span>
+      </div>
+    </nav>
+
+    <!-- 2. Desktop Toolbar / Ribbon Strip -->
+    <header class="desktop-toolbar">
+      <div class="tb-left">
+
+        <!-- Drive Selector -->
+        <div class="tb-item-group">
+          <span class="tb-label">Drive:</span>
+          <div class="tb-select-wrap">
+            <svg class="tb-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="6" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/></svg>
+            <select id="drive-select" class="tb-select" title="Select Physical Drive (Ctrl+D)">
+              <option value="C:\">C: [Scanning drives...]</option>
+            </select>
           </div>
         </div>
 
-        <!-- Tab 2: Top 100 Largest Files -->
-        <div id="pane-top-hogs" class="tab-content-pane">
-          <div class="table-container">
-            <table class="grid-table" id="hogs-table">
-              <thead>
-                <tr>
-                  <th style="width: 5%;">#</th>
-                  <th style="width: 25%;">File Name</th>
-                  <th style="width: 12%;">Size</th>
-                  <th style="width: 10%;">Extension</th>
-                  <th style="width: 48%;">Full Path</th>
-                </tr>
-              </thead>
-              <tbody id="hogs-table-body">
-                <tr>
-                  <td colspan="5" class="table-placeholder">
-                    Run a scan to view largest files.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+        <!-- Path Input -->
+        <div class="tb-item-group tb-path-wrap">
+          <input type="text" id="custom-path" class="tb-input path-input" placeholder="Path (e.g. C:\ or C:\Users)" title="Target Path">
+        </div>
+
+        <div class="tb-separator"></div>
+
+        <!-- Action Buttons with clean monochrome SVGs -->
+        <button id="btn-scan" class="tb-btn btn-primary" title="Start High-Speed Scan (Enter)">
+          <svg class="tb-btn-svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <span>Scan</span>
+        </button>
+
+        <button id="btn-refresh" class="tb-btn btn-secondary" title="Rescan Directory (F5)">
+          <svg class="tb-btn-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.64-6.36L21 8m0 0V3m0 5h-5"/></svg>
+          <span>Rescan</span>
+        </button>
+
+        <button id="btn-elevate" class="tb-btn btn-warning" style="display: none;" title="Run as Administrator for 1-second raw NTFS MFT drive scanning">
+          <svg class="tb-btn-svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z"/></svg>
+          <span>Run as Admin (Fast MFT)</span>
+        </button>
+
+        <button id="btn-export-csv" class="tb-btn btn-secondary" title="Export scan results to CSV">
+          <svg class="tb-btn-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          <span>Export CSV</span>
+        </button>
+
+        <div class="tb-separator"></div>
+
+        <!-- Live Search Filter -->
+        <div class="tb-filter-wrap">
+          <svg class="tb-filter-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="search-filter" class="tb-input filter-input" placeholder="Filter: *.iso, >100MB... (Ctrl+F)">
+        </div>
+      </div>
+
+      <div class="tb-right">
+        <!-- Proportional Storage Gauge -->
+        <div class="capacity-gauge" id="capacity-gauge" title="Drive Storage Capacity">
+          <div class="gauge-track">
+            <div class="gauge-fill" id="capacity-fill" style="width: 0%;"></div>
+          </div>
+          <span class="gauge-text" id="capacity-text">Drive: Ready</span>
+        </div>
+
+        <button id="btn-about" class="tb-btn btn-ghost" title="About TreeMCP & Security Guardrails">
+          <span>About</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace with Draggable Splitter -->
+    <main class="main-viewport" id="viewport">
+
+      <!-- Upper View: Desktop Tabs & Dense Grid Tables -->
+      <section class="split-pane split-top" id="pane-upper">
+        <div class="desktop-tab-bar">
+          <button class="d-tab-btn active" data-target="pane-tree">
+            <svg class="d-tab-svg" width="13" height="13" viewBox="0 0 24 24" fill="#eab308"><path d="M2 6a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z"/></svg>
+            <span>Directory Tree</span>
+          </button>
+          <button class="d-tab-btn" data-target="pane-top-hogs">
+            <svg class="d-tab-svg" width="13" height="13" viewBox="0 0 24 24" fill="#f97316"><path d="M12 23c-4.97 0-9-4.03-9-9 0-4.07 3.06-7.64 5.92-10.46a1 1 0 0 1 1.62.62c.24 2.14 1.46 3.84 3.46 3.84 0 0 0-2 .5-4 1.5 2 4.5 4 4.5 9 0 4.97-4.03 9-9 9z"/></svg>
+            <span>Top 100 Files</span>
+          </button>
+          <button class="d-tab-btn" data-target="pane-duplicates">
+            <svg class="d-tab-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span>Duplicate Candidates</span>
+          </button>
+          <button class="d-tab-btn" data-target="pane-ext">
+            <svg class="d-tab-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+            <span>File Types</span>
+          </button>
+          <button class="d-tab-btn" data-target="pane-mcp">
+            <svg class="d-tab-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+            <span>MCP Server</span>
+          </button>
+
+          <div class="tab-spacer"></div>
+
+          <!-- Quick Metrics Strip -->
+          <div class="scan-quick-stats" id="quick-stats">
+            <span class="stat-item"><span class="stat-lbl">Files:</span> <b id="stat-files">0</b></span>
+            <span class="stat-sep">|</span>
+            <span class="stat-item"><span class="stat-lbl">Folders:</span> <b id="stat-folders">0</b></span>
+            <span class="stat-sep">|</span>
+            <span class="stat-item"><span class="stat-lbl">Size:</span> <b id="stat-size">0 B</b></span>
+            <span class="stat-sep">|</span>
+            <span class="stat-item"><span class="stat-lbl">Time:</span> <b id="stat-time" class="stat-highlight">0.00s</b></span>
           </div>
         </div>
 
-        <!-- Tab 3: Duplicate Candidate Finder -->
-        <div id="pane-duplicates" class="tab-content-pane">
-          <div class="table-container">
-            <table class="grid-table" id="duplicates-table">
-              <thead>
-                <tr>
-                  <th style="width: 5%;">#</th>
-                  <th style="width: 25%;">File Name</th>
-                  <th style="width: 12%;">Size</th>
-                  <th style="width: 14%;">Wasted Space</th>
-                  <th style="width: 8%;">Copies</th>
-                  <th style="width: 36%;">Locations</th>
-                </tr>
-              </thead>
-              <tbody id="duplicates-table-body">
-                <tr>
-                  <td colspan="6" class="table-placeholder">
-                    Run a scan to detect duplicate file candidates.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+        <div class="tab-content-container">
+          <!-- Tab 1: Directory Tree Table -->
+          <div id="pane-tree" class="tab-content-pane active">
+            <div class="table-container">
+              <table class="grid-table" id="tree-table">
+                <thead>
+                  <tr>
+                    <th class="col-name" style="width: 38%;">Name</th>
+                    <th class="col-pct" style="width: 14%;">% Parent</th>
+                    <th class="col-size" style="width: 12%;">Size</th>
+                    <th class="col-alloc" style="width: 12%;">Allocated</th>
+                    <th class="col-num" style="width: 12%;">Files</th>
+                    <th class="col-num" style="width: 12%;">Folders</th>
+                  </tr>
+                </thead>
+                <tbody id="tree-table-body">
+                  <tr>
+                    <td colspan="6" class="table-placeholder">
+                      Select a drive and click <b>Scan</b> to analyze storage.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
 
-        <!-- Tab 4: File Extension Matrix -->
-        <div id="pane-ext" class="tab-content-pane">
-          <div class="table-container">
-            <table class="grid-table" id="ext-table">
-              <thead>
-                <tr>
-                  <th style="width: 20%;">Extension</th>
-                  <th style="width: 20%;">Total Size</th>
-                  <th style="width: 35%;">% of Storage</th>
-                  <th style="width: 25%;">File Count</th>
-                </tr>
-              </thead>
-              <tbody id="ext-table-body">
-                <tr>
-                  <td colspan="4" class="table-placeholder">
-                    No scan data available.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- Tab 2: Top 100 Largest Files -->
+          <div id="pane-top-hogs" class="tab-content-pane">
+            <div class="table-container">
+              <table class="grid-table" id="hogs-table">
+                <thead>
+                  <tr>
+                    <th style="width: 5%;">#</th>
+                    <th style="width: 25%;">File Name</th>
+                    <th style="width: 12%;">Size</th>
+                    <th style="width: 10%;">Extension</th>
+                    <th style="width: 48%;">Full Path</th>
+                  </tr>
+                </thead>
+                <tbody id="hogs-table-body">
+                  <tr>
+                    <td colspan="5" class="table-placeholder">
+                      Run a scan to view largest files.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
 
-        <!-- Tab 4: MCP Server Dashboard -->
-        <div id="pane-mcp" class="tab-content-pane">
-          <div class="mcp-dashboard">
+          <!-- Tab 3: Duplicate Candidate Finder -->
+          <div id="pane-duplicates" class="tab-content-pane">
+            <div class="table-container">
+              <table class="grid-table" id="duplicates-table">
+                <thead>
+                  <tr>
+                    <th style="width: 5%;">#</th>
+                    <th style="width: 25%;">File Name</th>
+                    <th style="width: 12%;">Size</th>
+                    <th style="width: 14%;">Wasted Space</th>
+                    <th style="width: 8%;">Copies</th>
+                    <th style="width: 36%;">Locations</th>
+                  </tr>
+                </thead>
+                <tbody id="duplicates-table-body">
+                  <tr>
+                    <td colspan="6" class="table-placeholder">
+                      Run a scan to detect duplicate file candidates.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-            <!-- MCP Connection Guide Card -->
-            <div class="mcp-connection-card">
-              <div class="mcp-conn-header">
-                <div class="conn-title-group">
-                  <span class="conn-icon">🔌</span>
-                  <div>
-                    <div class="conn-title">Connect MCP to AI Assistant</div>
-                    <div class="conn-sub">One-click config for Claude Desktop, Cursor, Antigravity & Windsurf</div>
+          <!-- Tab 4: File Type Statistics -->
+          <div id="pane-ext" class="tab-content-pane">
+            <div class="table-container">
+              <table class="grid-table" id="ext-table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Extension</th>
+                    <th style="width: 20%;">Total Size</th>
+                    <th style="width: 35%;">% of Storage</th>
+                    <th style="width: 25%;">File Count</th>
+                  </tr>
+                </thead>
+                <tbody id="ext-table-body">
+                  <tr>
+                    <td colspan="4" class="table-placeholder">
+                      No scan data available.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tab 5: MCP Server & AI Settings -->
+          <div id="pane-mcp" class="tab-content-pane">
+            <div class="mcp-dashboard">
+              <!-- MCP Quick Connect Card -->
+              <div class="mcp-connection-card">
+                <div class="mcp-conn-header">
+                  <div class="conn-title-group">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    <div>
+                      <div class="conn-title">Connect MCP to AI Assistant</div>
+                      <div class="conn-sub">One-click config for Claude Desktop, Cursor, Antigravity & Windsurf</div>
+                    </div>
+                  </div>
+                  <div class="conn-tabs">
+                    <button class="conn-tab-btn active" data-client="claude">Claude Desktop</button>
+                    <button class="conn-tab-btn" data-client="cursor">Cursor</button>
+                    <button class="conn-tab-btn" data-client="antigravity">Antigravity</button>
+                    <button class="conn-tab-btn" data-client="windsurf">Windsurf</button>
                   </div>
                 </div>
-                <div class="conn-tabs">
-                  <button class="conn-tab-btn active" data-client="claude">Claude Desktop</button>
-                  <button class="conn-tab-btn" data-client="cursor">Cursor</button>
-                  <button class="conn-tab-btn" data-client="antigravity">Antigravity</button>
-                  <button class="conn-tab-btn" data-client="windsurf">Windsurf</button>
+
+                <div class="conn-path-info">
+                  <span class="path-label">Config Location:</span>
+                  <code id="mcp-config-path" class="path-code">%APPDATA%\Claude\claude_desktop_config.json</code>
                 </div>
-              </div>
 
-              <div class="conn-path-info">
-                <span class="path-label">Config Location:</span>
-                <code id="mcp-config-path" class="path-code">%APPDATA%\Claude\claude_desktop_config.json</code>
-              </div>
-
-              <div class="mcp-code-wrapper">
-                <pre class="mcp-json-pre" id="mcp-json-snippet">{
+                <div class="mcp-code-wrapper">
+                  <pre class="mcp-json-pre" id="mcp-json-snippet">{
   "mcpServers": {
     "treemcp": {
       "command": "TreeMCP.exe",
@@ -243,109 +319,105 @@
     }
   }
 }</pre>
-                <button class="ribbon-btn btn-primary btn-copy-json" id="btn-copy-mcp" title="Copy configuration to clipboard">
-                  <span class="btn-icon">📋</span>
-                  <span id="copy-btn-text">Copy JSON</span>
-                </button>
+                  <button class="tb-btn btn-primary btn-copy-json" id="btn-copy-mcp" title="Copy configuration to clipboard">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <span id="copy-btn-text">Copy JSON</span>
+                  </button>
+                </div>
+
+                <div class="conn-footer-hint">
+                  <span><b>1-Click Automated Setup:</b> Run <code>irm https://raw.githubusercontent.com/AMG555/TreeMCP/main/install.ps1 | iex</code> in PowerShell to register in all installed AI clients.</span>
+                </div>
               </div>
 
-              <div class="conn-footer-hint">
-                <span>💡 <b>Automated 1-Click Setup:</b> Run <code>irm https://raw.githubusercontent.com/AMG555/TreeMCP/main/install.ps1 | iex</code> in PowerShell to auto-register into all installed AI clients instantly.</span>
+              <!-- Metrics Grid -->
+              <div class="mcp-stat-grid">
+                <div class="mcp-stat-box">
+                  <div class="stat-box-title">AI Tool Invocations</div>
+                  <div class="stat-box-num" id="mcp-stat-queries">0</div>
+                  <div class="stat-box-sub">Local JSON-RPC 2.0</div>
+                </div>
+                <div class="mcp-stat-box">
+                  <div class="stat-box-title">TreeMCP Tokens Consumed</div>
+                  <div class="stat-box-num" id="mcp-stat-tokens-used">0</div>
+                  <div class="stat-box-sub">Optimized Compact Format</div>
+                </div>
+                <div class="mcp-stat-box">
+                  <div class="stat-box-title">Tokens Saved vs Raw JSON</div>
+                  <div class="stat-box-num text-success" id="mcp-stat-tokens-saved">0</div>
+                  <div class="stat-box-sub">Reduced Context Bloat</div>
+                </div>
+                <div class="mcp-stat-box">
+                  <div class="stat-box-title">Context Reduction Rate</div>
+                  <div class="stat-box-num text-success" id="mcp-stat-savings-pct">94.8%</div>
+                  <div class="stat-box-sub">Token Compression Efficiency</div>
+                </div>
               </div>
-            </div>
 
-            <!-- Metrics Grid -->
-            <div class="mcp-stat-grid">
-              <div class="mcp-stat-box">
-                <div class="stat-box-title">AI Tool Invocations</div>
-                <div class="stat-box-num" id="mcp-stat-queries">0</div>
-                <div class="stat-box-sub">Local JSON-RPC 2.0</div>
+              <div class="mcp-tools-reference">
+                <div class="section-heading">Exposed Native MCP Tools</div>
+                <div class="tools-pills">
+                  <span class="tool-pill" title="Fast multi-threaded file tree scan"><code>treemcp_scan</code></span>
+                  <span class="tool-pill" title="Retrieve top largest files and folders"><code>treemcp_top_hogs</code></span>
+                  <span class="tool-pill" title="File extension distribution matrix"><code>treemcp_extension_summary</code></span>
+                  <span class="tool-pill" title="Instant drive status in ~25 tokens"><code>treemcp_drive_summary</code></span>
+                  <span class="tool-pill" title="Filter files by name and size"><code>treemcp_search</code></span>
+                  <span class="tool-pill" title="Non-destructive safe recycle deletion"><code>treemcp_clean</code></span>
+                </div>
               </div>
-              <div class="mcp-stat-box">
-                <div class="stat-box-title">TreeMCP Tokens Consumed</div>
-                <div class="stat-box-num" id="mcp-stat-tokens-used">0</div>
-                <div class="stat-box-sub">Optimized Compact Format</div>
-              </div>
-              <div class="mcp-stat-box">
-                <div class="stat-box-title">Tokens Saved vs Raw JSON</div>
-                <div class="stat-box-num text-success" id="mcp-stat-tokens-saved">0</div>
-                <div class="stat-box-sub">Reduced Context Bloat</div>
-              </div>
-              <div class="mcp-stat-box">
-                <div class="stat-box-title">Context Reduction Rate</div>
-                <div class="stat-box-num text-success" id="mcp-stat-savings-pct">94.8%</div>
-                <div class="stat-box-sub">Token Compression Efficiency</div>
-              </div>
-            </div>
 
-            <div class="security-banner">
-              <span class="sec-tag">🛡️ Active Defenses:</span>
-              <span>Windows Recycle Bin Safe-Delete</span>
-              <span class="sec-dot">•</span>
-              <span>Anti-DNS Rebinding Host Verification</span>
-              <span class="sec-dot">•</span>
-              <span>256-bit Session Token (CSRF Shield)</span>
-              <span class="sec-dot">•</span>
-              <span>System Critical Blacklist</span>
-              <span class="sec-dot">•</span>
-              <span>64 KB Payload Ceiling</span>
-            </div>
-
-            <div class="mcp-tools-reference">
-              <div class="section-heading">Exposed Fast Tools</div>
-              <div class="tools-pills">
-                <span class="tool-pill" title="Run fast multi-threaded file tree scan"><code>treemcp_scan</code></span>
-                <span class="tool-pill" title="Retrieve top largest files and folders"><code>treemcp_top_hogs</code></span>
-                <span class="tool-pill" title="File extension distribution matrix"><code>treemcp_extension_summary</code></span>
-                <span class="tool-pill" title="Instant drive status in ~25 tokens"><code>treemcp_drive_summary</code></span>
-                <span class="tool-pill" title="Filter files by name and size"><code>treemcp_search</code></span>
-                <span class="tool-pill" title="Non-destructive safe recycle deletion"><code>treemcp_clean</code></span>
+              <div class="mcp-terminal-log" id="mcp-log">
+                <div class="log-line-init">[Security Guard Active] Listening for Model Context Protocol commands on stdio & http://127.0.0.1:4242/mcp...</div>
               </div>
-            </div>
-
-            <div class="mcp-terminal-log" id="mcp-log">
-              <div class="log-line-init">[Security Guard Active] Listening for Model Context Protocol commands on stdio & http://127.0.0.1:4242/mcp...</div>
             </div>
           </div>
         </div>
+      </section>
+
+      <!-- Draggable Horizontal Splitter -->
+      <div class="splitter-horizontal" id="splitter" title="Drag up/down to resize table and treemap">
+        <div class="splitter-grip"></div>
       </div>
-    </section>
 
-    <!-- Draggable Horizontal Splitter -->
-    <div class="splitter-horizontal" id="splitter" title="Drag to resize panels">
-      <div class="splitter-grip"></div>
-    </div>
+      <!-- Lower View: Dynamic 100% Cushion Treemap Canvas -->
+      <section class="split-pane split-bottom" id="pane-lower">
+        <div class="treemap-bar">
+          <div class="breadcrumb-trail" id="breadcrumb-trail">
+            <span class="breadcrumb-item">Root</span>
+          </div>
 
-    <!-- Lower View: Dynamic Treemap Canvas -->
-    <section class="split-pane split-bottom" id="pane-lower">
-      <div class="treemap-header">
-        <div class="breadcrumb-trail" id="breadcrumb-trail">
-          <span class="breadcrumb-item">Root</span>
+          <!-- Live Interactive Extension Legend Strip -->
+          <div class="extension-legend-bar" id="legend-bar" title="Click an extension to highlight tiles in treemap">
+            <span class="legend-empty-text">Scan a drive to view file type legend</span>
+          </div>
+
+          <div class="treemap-hints">
+            <span>Double-click to drill down • Right-click for options</span>
+          </div>
         </div>
-        <div class="treemap-legend">
-          <span class="legend-hint">Double-click folder to drill down • Right-click for options</span>
+
+        <div class="canvas-viewport" id="canvas-viewport">
+          <canvas id="treemap-canvas"></canvas>
         </div>
+      </section>
+
+    </main>
+
+    <!-- 3. Desktop Status Bar -->
+    <footer class="app-status-bar">
+      <div class="status-left">
+        <span class="status-indicator-dot"></span>
+        <span id="status-text">Ready.</span>
+        <span class="status-sep">|</span>
+        <span id="status-selected" class="status-path-selection">None selected</span>
       </div>
-
-      <div class="canvas-viewport" id="canvas-viewport">
-        <canvas id="treemap-canvas"></canvas>
+      <div class="status-right">
+        <span class="status-tag" id="status-engine-tag">Win32 Standard</span>
+        <span class="status-tag tag-success" id="status-mcp-tag">MCP 127.0.0.1:4242 Active</span>
       </div>
-    </section>
+    </footer>
 
-  </main>
-
-  <!-- Modern Native Status Bar -->
-  <footer class="app-status-bar">
-    <div class="status-left">
-      <span class="status-indicator-dot"></span>
-      <span id="status-text">Ready.</span>
-      <span class="status-sep">|</span>
-      <span id="status-selected" class="status-path-selection">None selected</span>
-    </div>
-    <div class="status-right">
-      <span class="status-pill">MCP 2024-11-05 Active</span>
-    </div>
-  </footer>
+  </div>
 
   <!-- Floating HUD Tooltip Card -->
   <div id="treemap-tooltip" class="floating-tooltip"></div>
@@ -353,24 +425,24 @@
   <!-- Native Context Menu -->
   <div id="context-menu" class="desktop-context-menu">
     <div class="context-item" id="ctx-copy-path">
-      <span class="ctx-icon">📋</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
       <span>Copy Full Path</span>
     </div>
     <div class="context-item" id="ctx-open-explorer">
-      <span class="ctx-icon">📂</span>
-      <span>Open in File Explorer</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      <span>Open in Windows Explorer</span>
     </div>
     <div class="context-item" id="ctx-mcp-inspect">
-      <span class="ctx-icon">⚡</span>
-      <span>Inspect with MCP</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span>Inspect via MCP</span>
     </div>
     <div class="context-separator"></div>
     <div class="context-item item-danger" id="ctx-safe-recycle">
-      <span class="ctx-icon">🗑️</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
       <span>Move to Recycle Bin / Trash</span>
     </div>
     <div class="context-item" id="ctx-properties">
-      <span class="ctx-icon">ℹ️</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
       <span>Properties</span>
     </div>
   </div>
@@ -380,7 +452,7 @@
     <div class="modal-dialog">
       <div class="modal-header">
         <div class="modal-title-group">
-          <img src="logo.svg" alt="TreeMCP" width="28" height="28">
+          <img src="logo.svg" alt="TreeMCP" width="24" height="24">
           <div>
             <div class="modal-title">TreeMCP <span class="badge-ver">v1.1.0</span></div>
             <div class="modal-subtitle">High-Speed Disk Space Analyzer & Hardened MCP Server</div>
@@ -393,15 +465,15 @@
         <div class="specs-grid">
           <div class="spec-cell">
             <span class="spec-k">Binary Footprint</span>
-            <span class="spec-v text-success">~170 KB (Zero Runtime Dependencies)</span>
+            <span class="spec-v text-success">~320 KB (Zero Runtime Dependencies)</span>
           </div>
           <div class="spec-cell">
-            <span class="spec-k">Node Memory</span>
+            <span class="spec-k">Node Memory Pool</span>
             <span class="spec-v">48 Bytes / Node (CompactNode Pool)</span>
           </div>
           <div class="spec-cell">
-            <span class="spec-k">Scanning Engine</span>
-            <span class="spec-v">Direct Win32 FindFirstFileExW & MFT Reader</span>
+            <span class="spec-k">Scanning Engines</span>
+            <span class="spec-v">Direct NTFS Raw $MFT Reader & Win32 FindFirstFileExW</span>
           </div>
           <div class="spec-cell">
             <span class="spec-k">AI Protocol</span>
@@ -414,21 +486,21 @@
           <div class="shortcuts-list">
             <div class="sc-row"><kbd>Enter</kbd> <span>Scan selected drive or custom folder</span></div>
             <div class="sc-row"><kbd>F5</kbd> <span>Rescan current directory</span></div>
-            <div class="sc-row"><kbd>Ctrl</kbd>+<kbd>F</kbd> <span>Focus live filter search</span></div>
+            <div class="sc-row"><kbd>Ctrl</kbd>+<kbd>F</kbd> <span>Focus live search filter</span></div>
             <div class="sc-row"><kbd>Ctrl</kbd>+<kbd>D</kbd> <span>Focus drive selection dropdown</span></div>
             <div class="sc-row"><kbd>Esc</kbd> <span>Close dialogs / dismiss context menu</span></div>
           </div>
         </div>
 
         <div class="security-summary-card">
-          <b>🛡️ Enterprise-Grade Security Architecture:</b><br>
-          DEP/NX • High-Entropy ASLR • Stack Protector Strong • Anti-DNS Rebinding Host Check • 256-bit Session Token (CSRF Defense) • Safe-Delete Recycle Bin Interceptor • System Critical Path Blacklist • 64 KB Max Buffer Boundary.
+          <b>Hardened Security Architecture:</b><br>
+          DEP/NX • High-Entropy ASLR • Stack Protector Strong • Anti-DNS Rebinding Host Check • 256-bit Cryptographic Session Token (CSRF Shield) • Safe-Delete Recycle Bin Interceptor • System Critical Path Blacklist.
         </div>
       </div>
 
       <div class="modal-footer">
-        <a href="https://github.com/AMG555/TreeMCP" target="_blank" class="ribbon-btn btn-secondary" style="text-decoration: none;">GitHub Repository</a>
-        <button id="modal-ok-btn" class="ribbon-btn btn-primary">Close</button>
+        <a href="https://github.com/AMG555/TreeMCP" target="_blank" class="tb-btn btn-secondary" style="text-decoration: none;">GitHub Repository</a>
+        <button id="modal-ok-btn" class="tb-btn btn-primary">Close</button>
       </div>
     </div>
   </div>
