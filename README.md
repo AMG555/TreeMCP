@@ -25,12 +25,34 @@
 
 </div>
 
-## 📥 Direct Download (Windows)
+## 📥 Direct Download & Instant Setup
 
-No installation required. Single standalone executable:
-
+### Option 1: Standalone Download (Windows)
 * **[⬇️ Download TreeMCP.exe (v1.0.0 - Windows x64)](https://github.com/AMG555/TreeMCP/releases/download/v1.0.0/TreeMCP.exe)** (~347 KB)
 * All releases & checksums: **[GitHub Releases Page](https://github.com/AMG555/TreeMCP/releases)**
+
+---
+
+### Option 2: 🤖 Single-Prompt AI Agent Setup (Zero Manual Work)
+Paste this prompt into **Claude Code**, **Antigravity**, **Cursor**, or **Windsurf**:
+
+```markdown
+Download the latest TreeMCP standalone binary from https://github.com/AMG555/TreeMCP/releases/download/v1.0.0/TreeMCP.exe, place it in %LOCALAPPDATA%\TreeMCP\TreeMCP.exe (or clone and run `make` on Linux to build ~/.local/bin/treemcp), register it in your active mcpServers configuration with command `TreeMCP.exe` and args `["--mcp"]`, and test the connection by invoking the `treemcp_drive_summary` tool.
+```
+
+---
+
+### Option 3: ⚡ 1-Line Terminal Installers
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/AMG555/TreeMCP/main/install.ps1 | iex
+```
+
+**Linux (Bash):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/AMG555/TreeMCP/main/install.sh | bash
+```
 
 ---
 
