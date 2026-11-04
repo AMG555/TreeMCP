@@ -358,6 +358,64 @@ void handle_http_client(socket_t client_sock) {
             }
             ss << "]}";
             body = ss.str();
+        } else if (clean_uri == "/api/system-info") {
+            content_type = "application/json";
+            bool is_admin = MftReader::has_admin_privileges();
+            body = "{\"is_admin\":" + std::string(is_admin ? "true" : "false") + "}";
+        } else if (clean_uri == "/api/elevate") {
+            content_type = "application/json";
+#ifdef _WIN32
+            wchar_t exe_path[MAX_PATH];
+            GetModuleFileNameW(NULL, exe_path, MAX_PATH);
+            HINSTANCE hInst = ShellExecuteW(NULL, L"runas", exe_path, NULL, NULL, SW_SHOWNORMAL);
+            bool launched = ((INT_PTR)hInst > 32);
+            body = "{\"ok\":" + std::string(launched ? "true" : "false") + "}";
+#else
+            body = "{\"ok\":false,\"message\":\"Elevation only supported on Windows\"}";
+#endif
+        } else if (clean_uri.find("/api/duplicates") == 0) {
+            content_type = "application/json";
+            auto dups = g_tree.get_duplicate_candidates(1024 * 1024, 50); // min 1MB
+            std::stringstream ss;
+            ss << "{\"duplicates\":[";
+            for (size_t i = 0; i < dups.size(); ++i) {
+                if (i > 0) ss << ",";
+                std::string esc_name;
+                for (char c : dups[i].name) { if (c == '\\' || c == '"') esc_name += '\\'; esc_name += c; }
+                ss << "{\"name\":\"" << esc_name << "\""
+                   << ",\"extension\":\"" << dups[i].extension << "\""
+                   << ",\"size\":" << dups[i].size
+                   << ",\"wasted_bytes\":" << dups[i].wasted_bytes
+                   << ",\"paths\":[";
+                for (size_t j = 0; j < dups[i].paths.size(); ++j) {
+                    if (j > 0) ss << ",";
+                    std::string esc_p;
+                    for (char c : dups[i].paths[j]) { if (c == '\\' || c == '"') esc_p += '\\'; esc_p += c; }
+                    ss << "\"" << esc_p << "\"";
+                }
+                ss << "]}";
+            }
+            ss << "]}";
+            body = ss.str();
+        } else if (clean_uri.find("/api/export-csv") == 0) {
+            content_type = "text/csv; charset=UTF-8";
+            std::stringstream ss;
+            ss << "Name,Size,Allocated,Type,Extension,Path\n";
+            auto hogs = g_tree.get_top_hogs(g_tree.root_idx(), 1000, 0, "all");
+            for (const auto& h : hogs) {
+                std::string name = g_tree.get_name(h.node_idx);
+                std::string ext = g_tree.get_extension(h.node_idx);
+                std::string csv_name = "\"";
+                for (char c : name) { if (c == '"') csv_name += "\"\""; else csv_name += c; }
+                csv_name += "\"";
+                std::string csv_path = "\"";
+                for (char c : h.full_path) { if (c == '"') csv_path += "\"\""; else csv_path += c; }
+                csv_path += "\"";
+                ss << csv_name << "," << h.size << "," << h.size << ","
+                   << (h.is_dir ? "Directory" : "File") << ","
+                   << ext << "," << csv_path << "\n";
+            }
+            body = ss.str();
         } else if (clean_uri == "/api/mcp-stats") {
             content_type = "application/json";
             std::stringstream ss;

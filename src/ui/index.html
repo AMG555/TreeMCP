@@ -45,6 +45,16 @@
         <span>Rescan</span>
       </button>
 
+      <button id="btn-elevate" class="ribbon-btn btn-warning" style="display: none;" title="Restart with Administrator privileges for 1-second MFT raw drive scanning">
+        <span class="btn-icon">⚡</span>
+        <span>Run as Admin</span>
+      </button>
+
+      <button id="btn-export-csv" class="ribbon-btn btn-secondary" title="Export current scan data to CSV">
+        <span class="btn-icon">📥</span>
+        <span>Export CSV</span>
+      </button>
+
       <div class="ribbon-sep"></div>
 
       <!-- Live Filter -->
@@ -81,6 +91,10 @@
         <button class="tab-btn" data-target="pane-top-hogs">
           <span class="tab-icon">🔥</span>
           <span>Top 100 Files</span>
+        </button>
+        <button class="tab-btn" data-target="pane-duplicates">
+          <span class="tab-icon">👯</span>
+          <span>Duplicates</span>
         </button>
         <button class="tab-btn" data-target="pane-ext">
           <span class="tab-icon">📊</span>
@@ -145,7 +159,32 @@
           </div>
         </div>
 
-        <!-- Tab 3: File Extension Matrix -->
+        <!-- Tab 3: Duplicate Candidate Finder -->
+        <div id="pane-duplicates" class="tab-content-pane">
+          <div class="table-container">
+            <table class="grid-table" id="duplicates-table">
+              <thead>
+                <tr>
+                  <th style="width: 5%;">#</th>
+                  <th style="width: 25%;">File Name</th>
+                  <th style="width: 12%;">Size</th>
+                  <th style="width: 14%;">Wasted Space</th>
+                  <th style="width: 8%;">Copies</th>
+                  <th style="width: 36%;">Locations</th>
+                </tr>
+              </thead>
+              <tbody id="duplicates-table-body">
+                <tr>
+                  <td colspan="6" class="table-placeholder">
+                    Run a scan to detect duplicate file candidates.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 4: File Extension Matrix -->
         <div id="pane-ext" class="tab-content-pane">
           <div class="table-container">
             <table class="grid-table" id="ext-table">

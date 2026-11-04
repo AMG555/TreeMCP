@@ -382,6 +382,56 @@ std::vector<FileTree::SearchResult> FileTree::search(const std::string& pattern,
     return results;
 }
 
+std::vector<FileTree::DuplicateCandidate> FileTree::get_duplicate_candidates(uint64_t min_bytes, size_t limit) const {
+    std::vector<DuplicateCandidate> duplicates;
+    if (root_idx_ == INVALID_INDEX || nodes_.empty()) return duplicates;
+
+    struct Group {
+        std::string name;
+        std::string ext;
+        uint64_t size;
+        std::vector<std::string> paths;
+    };
+    std::unordered_map<std::string, Group> groups;
+    groups.reserve(65536);
+
+    for (size_t i = 0; i < nodes_.size(); ++i) {
+        const auto& node = nodes_[i];
+        if (!node.is_directory() && node.size >= min_bytes) {
+            std::string name = get_name(static_cast<uint32_t>(i));
+            std::string key = std::to_string(node.size) + "_" + name;
+            auto it = groups.find(key);
+            if (it == groups.end()) {
+                groups[key] = {name, get_extension(static_cast<uint32_t>(i)), node.size, {get_full_path(static_cast<uint32_t>(i))}};
+            } else {
+                it->second.paths.push_back(get_full_path(static_cast<uint32_t>(i)));
+            }
+        }
+    }
+
+    for (auto& pair : groups) {
+        if (pair.second.paths.size() >= 2) {
+            uint64_t wasted = (pair.second.paths.size() - 1) * pair.second.size;
+            duplicates.push_back({
+                std::move(pair.second.name),
+                std::move(pair.second.ext),
+                pair.second.size,
+                wasted,
+                std::move(pair.second.paths)
+            });
+        }
+    }
+
+    std::sort(duplicates.begin(), duplicates.end(), [](const DuplicateCandidate& a, const DuplicateCandidate& b) {
+        return a.wasted_bytes > b.wasted_bytes;
+    });
+
+    if (duplicates.size() > limit) {
+        duplicates.resize(limit);
+    }
+    return duplicates;
+}
+
 std::string FileTree::format_size(uint64_t bytes) {
     std::stringstream ss;
     ss << std::fixed << std::setprecision(1);

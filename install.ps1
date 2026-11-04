@@ -1,6 +1,10 @@
 # TreeMCP One-Click Installer for Windows
 $ErrorActionPreference = 'Stop'
 
+# Stop any running TreeMCP process before updating
+Get-Process -Name "TreeMCP" -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep -Milliseconds 200
+
 $installDir = "$env:LOCALAPPDATA\TreeMCP"
 if (-not (Test-Path $installDir)) {
     New-Item -ItemType Directory -Force -Path $installDir | Out-Null

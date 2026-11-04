@@ -2,6 +2,7 @@
 
 #include "file_tree.h"
 #include <string>
+#include <vector>
 
 namespace TreeMCP {
 
@@ -10,10 +11,13 @@ public:
     MftReader();
     ~MftReader();
 
-    // Check if process has administrative / root privileges
+    // Check if current process has administrative privileges
     static bool has_admin_privileges();
 
-    // Attempt direct MFT scan on drive (Windows only)
+    // Enable privilege (e.g. SE_BACKUP_NAME)
+    static bool enable_privilege(const wchar_t* priv_name);
+
+    // Attempt direct high-speed MFT scan on NTFS volume
     bool scan_volume(const std::string& drive_path, FileTree& tree, ScanStats& stats);
 
 private:

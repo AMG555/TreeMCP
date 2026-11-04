@@ -143,6 +143,12 @@ void run_unit_tests() {
         RUN_TEST("Treemap mouse coordinate hit testing", hit != nullptr && hit->node_idx == first.node_idx);
     }
 
+    // 1.10 Duplicate Candidates Detection
+    tree.add_node("large_dataset.bin", 2ULL * 1024 * 1024 * 1024, 2ULL * 1024 * 1024 * 1024, root, false, 0);
+    auto dups = tree.get_duplicate_candidates(100 * 1024 * 1024, 10);
+    RUN_TEST("Duplicate candidate detection by name and size matching",
+             !dups.empty() && dups[0].name == "large_dataset.bin" && dups[0].paths.size() == 2);
+
     // 1.10 Path Canonicalization
     std::string canon1 = Security::canonicalize_path("C:\\foo\\bar\\..\\baz");
     std::string canon2 = Security::canonicalize_path("/usr/local/../bin/./bash");

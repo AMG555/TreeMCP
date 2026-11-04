@@ -60,6 +60,15 @@ public:
     };
     std::vector<SearchResult> search(const std::string& pattern, uint64_t min_bytes = 0, size_t limit = 50) const;
 
+    struct DuplicateCandidate {
+        std::string name;
+        std::string extension;
+        uint64_t size;
+        uint64_t wasted_bytes;
+        std::vector<std::string> paths;
+    };
+    std::vector<DuplicateCandidate> get_duplicate_candidates(uint64_t min_bytes = 1048576, size_t limit = 50) const;
+
     // Helpers
     static std::string format_size(uint64_t bytes);
     static std::string get_color_for_ext(const std::string& ext);

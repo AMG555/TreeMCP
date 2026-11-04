@@ -11,6 +11,7 @@ let breadcrumbPath = [];
 let expandedNodes = new Set();
 let contextTarget = null;
 let topHogsData = [];
+let duplicatesData = [];
 
 // Session token for anti-CSRF
 const urlParams = new URLSearchParams(window.location.search);
@@ -44,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupMcpConfigCard();
   setupEventListeners();
   loadDrives();
+  checkAdminStatus();
   startMcpEventStream();
 });
 
@@ -62,6 +64,9 @@ function setupTabs() {
 
       if (targetId === 'pane-top-hogs' && topHogsData.length === 0) {
         loadTopHogs();
+      }
+      if (targetId === 'pane-duplicates' && duplicatesData.length === 0) {
+        loadDuplicates();
       }
     });
   });
@@ -224,6 +229,30 @@ function setupEventListeners() {
   const btnRefresh = document.getElementById('btn-refresh');
   if (btnRefresh) {
     btnRefresh.addEventListener('click', triggerScan);
+  }
+
+  const btnElevate = document.getElementById('btn-elevate');
+  if (btnElevate) {
+    btnElevate.addEventListener('click', async () => {
+      try {
+        const res = await secureFetch('/api/elevate');
+        const data = await res.json();
+        if (data.ok) {
+          alert('Administrator instance launched. Please allow the UAC prompt to proceed with instant raw MFT scanning.');
+        } else {
+          alert('Failed to request elevation: ' + (data.message || 'Operation cancelled.'));
+        }
+      } catch (err) {
+        alert('Elevation error: ' + err.message);
+      }
+    });
+  }
+
+  const btnExportCsv = document.getElementById('btn-export-csv');
+  if (btnExportCsv) {
+    btnExportCsv.addEventListener('click', () => {
+      window.location.href = '/api/export-csv?token=' + encodeURIComponent(sessionToken);
+    });
   }
 
   document.getElementById('custom-path').addEventListener('keydown', (e) => {
@@ -601,6 +630,68 @@ function renderTopHogsTable(items) {
   });
 }
 
+async function checkAdminStatus() {
+  try {
+    const res = await secureFetch('/api/system-info');
+    if (!res.ok) return;
+    const data = await res.json();
+    const btnElevate = document.getElementById('btn-elevate');
+    if (btnElevate) {
+      btnElevate.style.display = data.is_admin ? 'none' : 'inline-flex';
+    }
+  } catch (e) {}
+}
+
+async function loadDuplicates() {
+  try {
+    const res = await secureFetch('/api/duplicates');
+    if (!res.ok) return;
+    const data = await res.json();
+    duplicatesData = data.duplicates || [];
+    renderDuplicatesTable(duplicatesData);
+  } catch (err) {
+    console.error('Failed to load duplicates:', err);
+  }
+}
+
+function renderDuplicatesTable(items) {
+  const tbody = document.getElementById('duplicates-table-body');
+  tbody.innerHTML = '';
+
+  if (!items || items.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="table-placeholder">No duplicate candidates found (&gt; 1 MB).</td></tr>';
+    return;
+  }
+
+  items.forEach((it, idx) => {
+    const tr = document.createElement('tr');
+    tr.dataset.fullPath = it.paths[0] || '';
+    tr.dataset.name = it.name;
+    tr.dataset.size = it.size;
+
+    tr.innerHTML = `
+      <td class="col-num" style="color: var(--text-dim);">${idx + 1}</td>
+      <td style="font-weight: 500;" title="${escapeHtml(it.name)}">
+        <span class="tree-icon">📄</span>${escapeHtml(it.name)}
+      </td>
+      <td class="col-size">${treemapRenderer.formatSize(it.size)}</td>
+      <td class="col-size" style="font-weight: 700; color: #f59e0b;">${treemapRenderer.formatSize(it.wasted_bytes)}</td>
+      <td class="col-num" style="font-weight: 600;">${it.paths.length}</td>
+      <td style="color: var(--text-dim); font-family: var(--font-mono); font-size: 10px;" title="${escapeHtml(it.paths.join('\n'))}">
+        ${escapeHtml(it.paths[0])} <span style="color: var(--text-muted);">(+${it.paths.length - 1} more)</span>
+      </td>
+    `;
+
+    tr.addEventListener('click', () => {
+      document.querySelectorAll('#duplicates-table-body tr').forEach(r => r.classList.remove('selected'));
+      tr.classList.add('selected');
+      document.getElementById('status-selected').textContent = `${it.name} (${it.paths.length} copies, ${treemapRenderer.formatSize(it.wasted_bytes)} wasted)`;
+    });
+
+    tbody.appendChild(tr);
+  });
+}
+
 function renderExtensionsTable(extensions, totalBytes) {
   const tbody = document.getElementById('ext-table-body');
   tbody.innerHTML = '';
@@ -624,6 +715,68 @@ function renderExtensionsTable(extensions, totalBytes) {
       </td>
       <td class="col-num">${formatNumber(ext.count)}</td>
     `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function checkAdminStatus() {
+  try {
+    const res = await secureFetch('/api/system-info');
+    if (!res.ok) return;
+    const data = await res.json();
+    const btnElevate = document.getElementById('btn-elevate');
+    if (btnElevate) {
+      btnElevate.style.display = data.is_admin ? 'none' : 'inline-flex';
+    }
+  } catch (e) {}
+}
+
+async function loadDuplicates() {
+  try {
+    const res = await secureFetch('/api/duplicates');
+    if (!res.ok) return;
+    const data = await res.json();
+    duplicatesData = data.duplicates || [];
+    renderDuplicatesTable(duplicatesData);
+  } catch (err) {
+    console.error('Failed to load duplicates:', err);
+  }
+}
+
+function renderDuplicatesTable(items) {
+  const tbody = document.getElementById('duplicates-table-body');
+  tbody.innerHTML = '';
+
+  if (!items || items.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="table-placeholder">No duplicate candidates found (&gt; 1 MB).</td></tr>';
+    return;
+  }
+
+  items.forEach((it, idx) => {
+    const tr = document.createElement('tr');
+    tr.dataset.fullPath = it.paths[0] || '';
+    tr.dataset.name = it.name;
+    tr.dataset.size = it.size;
+
+    tr.innerHTML = `
+      <td class="col-num" style="color: var(--text-dim);">${idx + 1}</td>
+      <td style="font-weight: 500;" title="${escapeHtml(it.name)}">
+        <span class="tree-icon">📄</span>${escapeHtml(it.name)}
+      </td>
+      <td class="col-size">${treemapRenderer.formatSize(it.size)}</td>
+      <td class="col-size" style="font-weight: 700; color: #f59e0b;">${treemapRenderer.formatSize(it.wasted_bytes)}</td>
+      <td class="col-num" style="font-weight: 600;">${it.paths.length}</td>
+      <td style="color: var(--text-dim); font-family: var(--font-mono); font-size: 10px;" title="${escapeHtml(it.paths.join('\n'))}">
+        ${escapeHtml(it.paths[0])} <span style="color: var(--text-muted);">(+${it.paths.length - 1} more)</span>
+      </td>
+    `;
+
+    tr.addEventListener('click', () => {
+      document.querySelectorAll('#duplicates-table-body tr').forEach(r => r.classList.remove('selected'));
+      tr.classList.add('selected');
+      document.getElementById('status-selected').textContent = `${it.name} (${it.paths.length} copies, ${treemapRenderer.formatSize(it.wasted_bytes)} wasted)`;
+    });
+
     tbody.appendChild(tr);
   });
 }
@@ -724,6 +877,13 @@ function filterActiveTable(query) {
 
   // Filter Top Hogs
   document.querySelectorAll('#hogs-table-body tr').forEach(r => {
+    if (!q) { r.style.display = ''; return; }
+    const text = r.textContent.toLowerCase();
+    r.style.display = text.includes(q) ? '' : 'none';
+  });
+
+  // Filter Duplicates
+  document.querySelectorAll('#duplicates-table-body tr').forEach(r => {
     if (!q) { r.style.display = ''; return; }
     const text = r.textContent.toLowerCase();
     r.style.display = text.includes(q) ? '' : 'none';

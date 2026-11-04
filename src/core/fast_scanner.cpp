@@ -1,4 +1,5 @@
 #include "fast_scanner.h"
+#include "mft_reader.h"
 #include <chrono>
 #include <iostream>
 
@@ -75,21 +76,34 @@ bool FastScanner::scan(const std::string& root_path, FileTree& tree, ScanStats& 
         wroot.pop_back();
     }
 
-    std::string root_name = utf16_to_utf8(wroot);
-    uint32_t root_idx = tree.add_node(root_name, 0, 0, INVALID_INDEX, true, FILE_ATTRIBUTE_DIRECTORY);
-    tree.set_root_idx(root_idx);
+    bool mft_success = false;
+    bool is_drive_root = (wroot.size() <= 3 && wroot.size() >= 2 && wroot[1] == L':');
 
-    scan_recursive_win32(wroot, root_idx, tree, stats, progress_cb, cancel_flag);
+    if (is_drive_root && MftReader::has_admin_privileges()) {
+        MftReader reader;
+        mft_success = reader.scan_volume(root_path, tree, stats);
+    }
 
-    tree.aggregate_sizes();
-    tree.sort_children_by_size();
+    if (!mft_success) {
+        std::string root_name = utf16_to_utf8(wroot);
+        uint32_t root_idx = tree.add_node(root_name, 0, 0, INVALID_INDEX, true, FILE_ATTRIBUTE_DIRECTORY);
+        tree.set_root_idx(root_idx);
+
+        scan_recursive_win32(wroot, root_idx, tree, stats, progress_cb, cancel_flag);
+
+        tree.aggregate_sizes();
+        tree.sort_children_by_size();
+    }
 
     auto end_time = std::chrono::high_resolution_clock::now();
+    uint32_t final_root_idx = tree.root_idx();
     stats.duration_ms = std::chrono::duration<double, std::milli>(end_time - start_time).count();
-    stats.total_files = tree.get_node(root_idx).file_count;
-    stats.total_dirs = tree.get_node(root_idx).dir_count;
-    stats.total_bytes = tree.get_node(root_idx).size;
-    stats.total_allocated = tree.get_node(root_idx).allocated_size;
+    if (final_root_idx != INVALID_INDEX && final_root_idx < tree.node_count()) {
+        stats.total_files = tree.get_node(final_root_idx).file_count;
+        stats.total_dirs = tree.get_node(final_root_idx).dir_count;
+        stats.total_bytes = tree.get_node(final_root_idx).size;
+        stats.total_allocated = tree.get_node(final_root_idx).allocated_size;
+    }
 
     return (cancel_flag && cancel_flag->load()) ? false : true;
 }
@@ -239,11 +253,14 @@ bool FastScanner::scan(const std::string& root_path, FileTree& tree, ScanStats& 
     tree.sort_children_by_size();
 
     auto end_time = std::chrono::high_resolution_clock::now();
+    uint32_t final_root_idx = tree.root_idx();
     stats.duration_ms = std::chrono::duration<double, std::milli>(end_time - start_time).count();
-    stats.total_files = tree.get_node(root_idx).file_count;
-    stats.total_dirs = tree.get_node(root_idx).dir_count;
-    stats.total_bytes = tree.get_node(root_idx).size;
-    stats.total_allocated = tree.get_node(root_idx).allocated_size;
+    if (final_root_idx != INVALID_INDEX && final_root_idx < tree.node_count()) {
+        stats.total_files = tree.get_node(final_root_idx).file_count;
+        stats.total_dirs = tree.get_node(final_root_idx).dir_count;
+        stats.total_bytes = tree.get_node(final_root_idx).size;
+        stats.total_allocated = tree.get_node(final_root_idx).allocated_size;
+    }
 
     return (cancel_flag && cancel_flag->load()) ? false : true;
 }
