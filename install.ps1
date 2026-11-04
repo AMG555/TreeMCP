@@ -8,9 +8,14 @@ if (-not (Test-Path $installDir)) {
 
 $exePath = Join-Path $installDir "TreeMCP.exe"
 
-Write-Host "==> Downloading TreeMCP standalone binary..." -ForegroundColor Cyan
-$downloadUrl = "https://github.com/AMG555/TreeMCP/releases/download/v1.1.0/TreeMCP.exe"
-Invoke-WebRequest -Uri $downloadUrl -OutFile $exePath -UseBasicParsing
+if (Test-Path "$PSScriptRoot\TreeMCP.exe") {
+    Write-Host "==> Installing latest local TreeMCP build..." -ForegroundColor Cyan
+    Copy-Item -Path "$PSScriptRoot\TreeMCP.exe" -Destination $exePath -Force
+} else {
+    Write-Host "==> Downloading TreeMCP standalone binary..." -ForegroundColor Cyan
+    $downloadUrl = "https://github.com/AMG555/TreeMCP/releases/download/v1.1.0/TreeMCP.exe"
+    Invoke-WebRequest -Uri $downloadUrl -OutFile $exePath -UseBasicParsing
+}
 Unblock-File -Path $exePath -ErrorAction SilentlyContinue
 
 Write-Host "==> TreeMCP binary installed at: $exePath" -ForegroundColor Green
