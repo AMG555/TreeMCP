@@ -452,7 +452,7 @@ int main(int argc, char* argv[]) {
     g_port = port;
 
     std::cout << "=====================================================\n";
-    std::cout << "  TreeMCP - Cross-Platform WizTree Replica & MCP\n";
+    std::cout << "  TreeMCP - Cross-Platform Disk Analyzer & MCP\n";
     std::cout << "=====================================================\n";
     std::cout << "  * Local MCP Server: Active on stdio & http://127.0.0.1:" << port << "/mcp\n";
     std::cout << "  * Session Token:    " << g_session_token.substr(0, 8) << "... [REDACTED 256-bit]\n";

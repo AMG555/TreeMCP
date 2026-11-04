@@ -1,6 +1,6 @@
 /**
  * TreeMCP - Interactive Canvas Treemap Renderer
- * WizTree-style cushioned rectangular layout with extension color mapping
+ * Cushioned squarified rectangular layout with extension color mapping
  */
 
 class TreemapRenderer {
@@ -124,7 +124,7 @@ class TreemapRenderer {
       const isHovered = (this.hoveredTile === tile);
       const isSelected = (this.selectedTile === tile);
 
-      // Cushion gradient effect (iconic WizTree look)
+      // Cushion gradient effect with depth borders
       const grad = this.ctx.createLinearGradient(tile.x, tile.y, tile.x + tile.width, tile.y + tile.height);
 
       let baseColor = tile.color || '#34495e';

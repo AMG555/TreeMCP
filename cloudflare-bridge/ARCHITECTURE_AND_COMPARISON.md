@@ -35,7 +35,7 @@ Cloudflare Workers execute inside V8 isolates in global data centers. Because th
 This introduces a public attack surface: if authentication or tunnel tokens are compromised, an external party could enumerate your entire file tree.
 
 ### B. Latency & Scanning Speed
-- **WizTree's superpower is speed:** Scanning $1,000,000$ files takes 1.5–2 seconds.
+- **TreeMCP's primary strength is speed:** Scanning $1,000,000$ files takes 1.5–2 seconds.
 - An AI agent doing interactive disk troubleshooting typically asks 3–5 follow-up questions:
   1. `treemcp_drive_summary`
   2. `treemcp_top_hogs(min_mb=500)`

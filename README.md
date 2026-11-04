@@ -2,7 +2,7 @@
 
 # 🌳 TreeMCP
 
-### Ultra-Fast Lightweight WizTree Replica & Hardened Model Context Protocol (MCP) Server
+### Ultra-Fast Lightweight Disk Space Analyzer & Hardened Model Context Protocol (MCP) Server
 **Cross-Platform: Windows & Linux**
 
 [![Download TreeMCP](https://img.shields.io/badge/⬇️_Download-TreeMCP.exe_(v1.0.0)-20bf6b?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/AMG555/TreeMCP/releases/download/v1.0.0/TreeMCP.exe)
@@ -66,7 +66,7 @@ make
 
 ## 📌 About The Project
 
-**TreeMCP** is an exact, high-speed, lightweight replica of the iconic **WizTree** disk space utility for Windows and Linux, extended with a native **Model Context Protocol (MCP)** server.
+**TreeMCP** is an ultra-fast, lightweight, interactive disk space analyzer for Windows and Linux, extended with a native **Model Context Protocol (MCP)** server.
 
 Standard file inspection tools dump massive JSON trees that consume **15,000 to 50,000+ tokens** in a single AI agent turn. TreeMCP introduces an **adaptive compact protocol** that slashes token consumption by **94%–98%**, allowing AI coding assistants to diagnose disk hogs, analyze directory trees, and preview cleanups in **under 100 tokens**.
 
@@ -135,7 +135,7 @@ Standard file inspection tools dump massive JSON trees that consume **15,000 to 
                         │                                 │
                         ▼                                 ▼
          ┌──────────────────────────────┐  ┌────────────────────────────────┐
-         │     WizTree GUI Desktop      │  │      AI Coding Assistants      │
+         │    Interactive GUI Desktop   │  │      AI Coding Assistants      │
          │  • Drive Selector & Gauge    │  │ • Antigravity / Claude Code    │
          │  • Tree & Extension Tabs     │  │ • Cursor / Windsurf / Desktop  │
          │  • Interactive Canvas Treemap│  │ • Optional Cloudflare Bridge   │
