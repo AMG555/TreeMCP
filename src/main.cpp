@@ -455,7 +455,7 @@ int main(int argc, char* argv[]) {
                   << " | Size: " << FileTree::format_size(stats.total_bytes) << "\n\n";
 
         std::cout << "Top 10 Hogs:\n";
-        auto hogs = g_tree.get_top_hogs(g_tree.root_idx(), 10, 10 * 1024 * 1024);
+        auto hogs = g_tree.get_top_hogs(g_tree.root_idx(), 10, 0);
         std::cout << TokenOptimizer::format_hogs(hogs) << "\n";
         return 0;
     }

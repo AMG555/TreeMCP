@@ -40,3 +40,4 @@ if !TEST_EXIT! neq 0 (
 
 echo [SUCCESS] All tests passed!
 exit /b 0
+

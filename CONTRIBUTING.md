@@ -72,3 +72,4 @@ TreeMCP is an ultra-fast, memory-efficient disk space analyzer with a built-in M
 
 - Bug reports and feature proposals should be submitted via [GitHub Issues](https://github.com/AMG555/TreeMCP/issues).
 - For security vulnerabilities, please refer to [SECURITY.md](SECURITY.md) and report via private channels.
+

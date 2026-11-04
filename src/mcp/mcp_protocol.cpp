@@ -198,7 +198,7 @@ std::string McpProtocol::handle_tools_call(const std::string& id, const std::str
         size_t limit = limit_str.empty() ? 15 : std::stoull(limit_str);
         if (limit > 100) limit = 100; // Cap limit to prevent memory/token blowup
 
-        uint64_t min_bytes = min_mb_str.empty() ? (50ULL * 1024 * 1024) : (std::stoull(min_mb_str) * 1024 * 1024);
+        uint64_t min_bytes = min_mb_str.empty() ? 0 : (std::stoull(min_mb_str) * 1024 * 1024);
         if (filter_str.empty()) filter_str = "all";
 
         auto hogs = tree_.get_top_hogs(tree_.root_idx(), limit, min_bytes, filter_str);
@@ -212,7 +212,7 @@ std::string McpProtocol::handle_tools_call(const std::string& id, const std::str
         int max_depth = depth_str.empty() ? 1 : std::stoi(depth_str);
         if (max_depth > 5) max_depth = 5; // Guard maximum tree depth
 
-        uint64_t min_bytes = min_mb_str.empty() ? (50ULL * 1024 * 1024) : (std::stoull(min_mb_str) * 1024 * 1024);
+        uint64_t min_bytes = min_mb_str.empty() ? 0 : (std::stoull(min_mb_str) * 1024 * 1024);
 
         text_result = TokenOptimizer::format_tree(tree_, tree_.root_idx(), max_depth, min_bytes);
         standard_tokens = TokenOptimizer::estimate_standard_json_tokens(30);

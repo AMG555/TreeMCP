@@ -28,3 +28,4 @@ echo "Running tests..."
 rm -f test_runner
 
 echo "[SUCCESS] All tests passed!"
+

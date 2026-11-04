@@ -64,3 +64,4 @@ TreeMCP runs locally with access to disk metadata and accepts local Model Contex
 - **ASLR**: High Entropy 64-bit Address Space Layout Randomization (`-Wl,--dynamicbase -Wl,--high-entropy-va`).
 - **Stack Canaries**: Buffer overflow protection via `-fstack-protector-strong`.
 - **Fortify Source**: Runtime memory boundary checks enabled via `-D_FORTIFY_SOURCE=2`.
+
