@@ -465,7 +465,8 @@ std::string FileTree::get_color_for_ext(const std::string& ext) {
     if (ext == ".pak" || ext == ".zip" || ext == ".rar" || ext == ".7z" || ext == ".tar" || ext == ".gz") return "#ff9800"; // Deep Tangerine (Archives)
     if (ext == ".json" || ext == ".xml" || ext == ".yaml" || ext == ".yml") return "#e91e63"; // Hot magenta (.json/data)
     if (ext == ".so" || ext == ".dylib") return "#00b4d8"; // Cyan (.so)
-    if (ext == ".iso" || ext == ".vhd" || ext == ".vhdx" || ext == ".img") return "#9c27b0"; // Vivid Violet (Disk images)
+    if (ext == ".iso" || ext == ".vhd" || ext == ".vhdx" || ext == ".img" ||
+        ext == ".vmdk" || ext == ".vdi" || ext == ".vmem" || ext == ".ova" || ext == ".ovf" || ext == ".qcow2") return "#9c27b0"; // Vivid Violet (Disk images & VMs)
     if (ext == ".mp3" || ext == ".wav" || ext == ".flac" || ext == ".aac" || ext == ".ogg") return "#e84393"; // Pink rose (Audio)
     if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" || ext == ".gif" || ext == ".bmp") return "#fbc531"; // Sunny gold (Images)
     if (ext == ".pdf") return "#d63031"; // Acrobat red (.pdf)
