@@ -1,0 +1,504 @@
+:root {
+  --bg-primary: #1e1e24;
+  --bg-secondary: #25252d;
+  --bg-tertiary: #2e2e38;
+  --bg-hover: #3a3a47;
+  --text-main: #f1f2f6;
+  --text-muted: #a4b0be;
+  --border-color: #383846;
+  --accent-blue: #3867d6;
+  --accent-blue-hover: #4b7bec;
+  --accent-green: #20bf6b;
+  --accent-orange: #fa8231;
+  --accent-red: #eb3b5a;
+  --accent-cyan: #0fb9b1;
+  --bar-used: #3867d6;
+  --bar-free: #33333f;
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "Cascadia Code", "Consolas", "Courier New", monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Header & Controls */
+.toolbar {
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  color: #fff;
+}
+
+.brand .logo-icon {
+  font-size: 18px;
+  color: var(--accent-green);
+}
+
+.brand .mcp-badge {
+  background: linear-gradient(135deg, #10ac84, #0fb9b1);
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.drive-select, .custom-path-input, .search-input {
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  outline: none;
+}
+
+.drive-select:focus, .custom-path-input:focus, .search-input:focus {
+  border-color: var(--accent-blue);
+}
+
+.custom-path-input {
+  width: 260px;
+  font-family: var(--font-mono);
+}
+
+.search-input {
+  width: 180px;
+}
+
+.btn {
+  background-color: var(--accent-blue);
+  color: #fff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.15s ease;
+}
+
+.btn:hover {
+  background-color: var(--accent-blue-hover);
+}
+
+.btn-danger {
+  background-color: var(--accent-red);
+}
+.btn-danger:hover {
+  background-color: #fc5c65;
+}
+
+.btn-secondary {
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+}
+.btn-secondary:hover {
+  background-color: var(--bg-hover);
+}
+
+/* Drive Usage Bar Strip */
+.usage-strip {
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+}
+
+.usage-bar-container {
+  flex: 1;
+  height: 16px;
+  background-color: var(--bar-free);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+}
+
+.usage-bar-fill {
+  background: linear-gradient(90deg, #3867d6, #4b7bec);
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.usage-bar-text {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+
+.stats-badges {
+  display: flex;
+  gap: 12px;
+  color: var(--text-muted);
+}
+.stats-badge span {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+/* Main Split View */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.split-top {
+  height: 48%;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 2px solid var(--border-color);
+  background-color: var(--bg-primary);
+  overflow: hidden;
+}
+
+.tab-headers {
+  display: flex;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tab-header {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-header.active {
+  color: #fff;
+  border-bottom-color: var(--accent-blue);
+  background-color: var(--bg-primary);
+}
+
+.tab-content {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+/* Tree Grid Table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  table-layout: fixed;
+}
+
+.data-table th {
+  background-color: var(--bg-secondary);
+  color: var(--text-muted);
+  text-align: left;
+  padding: 6px 8px;
+  position: sticky;
+  top: 0;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+  z-index: 10;
+}
+
+.data-table td {
+  padding: 4px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.data-table tr:hover {
+  background-color: var(--bg-hover);
+  cursor: pointer;
+}
+
+.data-table tr.selected {
+  background-color: #2b3b5c;
+}
+
+.tree-indent {
+  display: inline-block;
+}
+
+.tree-expander {
+  display: inline-block;
+  width: 16px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.tree-icon {
+  margin-right: 6px;
+}
+
+.pct-cell-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pct-bar-outer {
+  flex: 1;
+  height: 8px;
+  background-color: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pct-bar-inner {
+  height: 100%;
+  background-color: var(--accent-blue);
+}
+
+/* Extensions Tab */
+.ext-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* MCP Tab */
+.mcp-panel {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.mcp-metrics-row {
+  display: flex;
+  gap: 16px;
+}
+
+.metric-card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px 16px;
+  flex: 1;
+}
+
+.metric-card .title {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.metric-card .value {
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 4px;
+  color: var(--accent-cyan);
+}
+
+.metric-card .savings {
+  color: var(--accent-green);
+}
+
+.mcp-log-container {
+  flex: 1;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow: auto;
+  line-height: 1.5;
+}
+
+/* Bottom Split: Treemap View */
+.split-bottom {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #121216;
+  position: relative;
+  overflow: hidden;
+}
+
+.treemap-toolbar {
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 4px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.breadcrumb-trail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.breadcrumb-item {
+  cursor: pointer;
+  color: var(--text-main);
+}
+.breadcrumb-item:hover {
+  text-decoration: underline;
+}
+
+.canvas-wrapper {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+#treemap-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Tooltip */
+.treemap-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background-color: rgba(20, 20, 28, 0.95);
+  border: 1px solid var(--accent-blue);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #fff;
+  z-index: 100;
+  display: none;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+  max-width: 380px;
+  word-break: break-all;
+}
+
+.treemap-tooltip .tt-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.treemap-tooltip .tt-size {
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+}
+
+/* Context Menu */
+.context-menu {
+  position: absolute;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 0;
+  font-size: 12px;
+  z-index: 1000;
+  display: none;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+  min-width: 180px;
+}
+
+.context-menu-item {
+  padding: 6px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.context-menu-item:hover {
+  background-color: var(--accent-blue);
+  color: #fff;
+}
+
+/* Status Bar */
+.status-bar {
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  padding: 4px 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status-left {
+  display: flex;
+  gap: 14px;
+}
+
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-mcp-online {
+  color: var(--accent-green);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--accent-green);
+}
+

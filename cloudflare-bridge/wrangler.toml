@@ -1,0 +1,9 @@
+name = "treemcp-remote-bridge"
+main = "worker.ts"
+compatibility_date = "2024-11-01"
+
+[vars]
+# Optional: URL of your local TreeMCP instance exposed via cloudflared tunnel
+# LOCAL_TREEMCP_TUNNEL_URL = "https://treemcp.myaccount.cfargotunnel.com"
+# AUTH_TOKEN = "your-secret-token"
+
