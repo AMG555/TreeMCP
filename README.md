@@ -56,6 +56,28 @@ curl -fsSL https://raw.githubusercontent.com/AMG555/TreeMCP/main/install.sh | ba
 
 ---
 
+## 🗑️ Clean Uninstallation
+
+Completely unregisters TreeMCP from all MCP clients (Claude Desktop, Antigravity, Cursor) and deletes the binary with zero leftover files.
+
+### 1-Line Terminal Uninstall
+* **Windows (PowerShell):**
+  ```powershell
+  irm https://raw.githubusercontent.com/AMG555/TreeMCP/main/uninstall.ps1 | iex
+  ```
+* **Linux (Bash):**
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/AMG555/TreeMCP/main/uninstall.sh | bash
+  ```
+
+### 🤖 Single-Prompt AI Agent Uninstall
+Paste into your AI coding assistant:
+```markdown
+Stop any running TreeMCP process, unregister the `treemcp` entry from your active mcpServers configuration file, and delete the TreeMCP directory at %LOCALAPPDATA%\TreeMCP (or ~/.local/bin/treemcp on Linux).
+```
+
+---
+
 ## 🐧 Linux Support
 
 TreeMCP runs natively on Linux (Ubuntu, Debian, Fedora, Arch, Alpine, etc.):

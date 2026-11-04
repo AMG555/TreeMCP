@@ -417,6 +417,22 @@ int main(int argc, char* argv[]) {
     g_session_token = Security::generate_secure_token();
     g_mcp = std::make_unique<McpProtocol>(g_tree, g_scanner);
 
+    // Mode 0: CLI Uninstall
+    if (argc >= 2 && std::string(argv[1]) == "--uninstall") {
+        std::cout << "===============================================\n";
+        std::cout << "  TreeMCP Uninstallation\n";
+        std::cout << "===============================================\n";
+#ifdef _WIN32
+        std::cout << "To unregister MCP and remove all files, run in PowerShell:\n";
+        std::cout << "  irm https://raw.githubusercontent.com/AMG555/TreeMCP/main/uninstall.ps1 | iex\n";
+#else
+        std::cout << "To unregister MCP and remove binary, run in terminal:\n";
+        std::cout << "  curl -fsSL https://raw.githubusercontent.com/AMG555/TreeMCP/main/uninstall.sh | bash\n";
+#endif
+        std::cout << "===============================================\n";
+        return 0;
+    }
+
     // Mode 1: MCP Stdio Server
     if (argc >= 2 && std::string(argv[1]) == "--mcp") {
         g_mcp->run_stdio_server();
