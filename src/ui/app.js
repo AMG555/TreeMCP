@@ -468,6 +468,7 @@ function logMcpAction(msg) {
 
 function startMcpEventStream() {
   setInterval(async () => {
+    if (document.hidden) return; // Skip polling when backgrounded
     try {
       const res = await secureFetch('/api/mcp-stats');
       if (!res.ok) return;
@@ -488,5 +489,9 @@ function startMcpEventStream() {
 
 function escapeHtml(str) {
   if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return str.replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
 }

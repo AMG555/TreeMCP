@@ -14,3 +14,4 @@ Actions=HeadlessMCP;
 [Desktop Action HeadlessMCP]
 Name=Start MCP Server
 Exec=treemcp --mcp
+

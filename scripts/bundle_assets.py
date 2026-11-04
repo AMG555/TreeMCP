@@ -72,3 +72,4 @@ with open(OUT_HEADER, "w", encoding="utf-8") as f:
     f.write("\n".join(lines))
 
 print(f"Generated {OUT_HEADER}")
+

@@ -172,3 +172,4 @@ img.save("src/ui/favicon.ico", format="ICO", sizes=[(32, 32), (16, 16)])
 
 print("[OK] Windows multi-size icon saved at assets/icon.ico")
 print("[OK] Favicon saved at src/ui/favicon.ico")
+

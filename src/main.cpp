@@ -197,6 +197,25 @@ std::string get_query_param(const std::string& uri, const std::string& param_nam
     return query.substr(p, end - p);
 }
 
+// URL decode helper
+std::string url_decode(const std::string& in) {
+    std::string decoded;
+    decoded.reserve(in.size());
+    for (size_t i = 0; i < in.size(); ++i) {
+        if (in[i] == '%' && i + 2 < in.size()) {
+            int val = 0;
+            std::istringstream hex_stream(in.substr(i + 1, 2));
+            if (hex_stream >> std::hex >> val) {
+                decoded += static_cast<char>(val);
+                i += 2;
+                continue;
+            }
+        }
+        decoded += in[i];
+    }
+    return decoded;
+}
+
 // HTTP Connection Handler
 void handle_http_client(socket_t client_sock) {
     char buf[65536];
@@ -270,7 +289,7 @@ void handle_http_client(socket_t client_sock) {
             body = serialize_drives(drives);
         } else if (clean_uri.find("/api/scan") == 0) {
             content_type = "application/json";
-            std::string path_param = get_query_param(uri, "path");
+            std::string path_param = url_decode(get_query_param(uri, "path"));
             if (path_param.empty()) {
 #ifdef _WIN32
                 path_param = "C:\\";
@@ -278,22 +297,6 @@ void handle_http_client(socket_t client_sock) {
                 path_param = "/";
 #endif
             }
-
-            // Basic URL decode
-            std::string decoded;
-            for (size_t i = 0; i < path_param.size(); ++i) {
-                if (path_param[i] == '%' && i + 2 < path_param.size()) {
-                    int val = 0;
-                    std::istringstream hex_stream(path_param.substr(i + 1, 2));
-                    if (hex_stream >> std::hex >> val) {
-                        decoded += static_cast<char>(val);
-                        i += 2;
-                        continue;
-                    }
-                }
-                decoded += path_param[i];
-            }
-            path_param = decoded;
 
             if (!Security::is_path_safe_to_read(path_param)) {
                 status_code = 400;
@@ -339,13 +342,16 @@ void handle_http_client(socket_t client_sock) {
             body = ss.str();
         } else if (clean_uri.find("/api/open-explorer") == 0) {
             content_type = "application/json";
-            std::string p = get_query_param(uri, "path");
+            std::string p = url_decode(get_query_param(uri, "path"));
             if (Security::is_path_safe_to_read(p)) {
 #ifdef _WIN32
                 int wlen = MultiByteToWideChar(CP_UTF8, 0, p.c_str(), -1, NULL, 0);
-                std::wstring wp(wlen, 0);
-                MultiByteToWideChar(CP_UTF8, 0, p.c_str(), -1, &wp[0], wlen);
-                ShellExecuteW(NULL, L"explore", wp.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                if (wlen > 0) {
+                    std::wstring wp;
+                    wp.resize(wlen);
+                    MultiByteToWideChar(CP_UTF8, 0, p.c_str(), -1, &wp[0], wlen);
+                    ShellExecuteW(NULL, L"explore", wp.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                }
 #else
                 std::string cmd = "xdg-open \"" + p + "\" >/dev/null 2>&1 &";
                 system(cmd.c_str());
@@ -353,6 +359,24 @@ void handle_http_client(socket_t client_sock) {
                 body = "{\"ok\":true}";
             } else {
                 body = "{\"error\":\"Path rejected by security policy.\"}";
+            }
+        } else if (clean_uri.find("/api/clean") == 0) {
+            content_type = "application/json";
+            std::string path_param = url_decode(get_query_param(uri, "path"));
+            std::string dry_run_param = get_query_param(uri, "dry_run");
+            bool dry_run = (dry_run_param == "true" || dry_run_param.empty());
+
+            if (!Security::is_path_safe_to_read(path_param) || Security::is_protected_system_path(path_param)) {
+                body = "{\"success\":false,\"message\":\"Path is protected by system security policy.\"}";
+            } else if (dry_run) {
+                body = "{\"success\":true,\"message\":\"Dry run preview: Item would be safely moved to Recycle Bin / Trash.\"}";
+            } else {
+                auto del_res = Security::safe_recycle_item(path_param);
+                if (del_res.success) {
+                    body = "{\"success\":true,\"message\":\"Safely moved to Recycle Bin / Trash.\"}";
+                } else {
+                    body = "{\"success\":false,\"message\":\"" + del_res.error_message + "\"}";
+                }
             }
         } else if (clean_uri == "/mcp" || clean_uri == "/api/mcp") {
             content_type = "application/json";
@@ -494,7 +518,12 @@ int main(int argc, char* argv[]) {
         STARTUPINFOA si{};
         PROCESS_INFORMATION pi{};
         si.cb = sizeof(si);
-        CreateProcessA(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+        if (CreateProcessA(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+        } else {
+            ShellExecuteA(NULL, "open", target_url.c_str(), NULL, NULL, SW_SHOWNORMAL);
+        }
 #else
         std::string cmd = "xdg-open \"" + target_url + "\" >/dev/null 2>&1 &";
         system(cmd.c_str());

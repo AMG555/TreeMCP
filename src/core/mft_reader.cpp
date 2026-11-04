@@ -39,7 +39,9 @@ bool MftReader::scan_volume(const std::string& drive_path, FileTree& tree, ScanS
     while (!vol.empty() && (vol.back() == '\\' || vol.back() == '/')) vol.pop_back();
 
     int wlen = MultiByteToWideChar(CP_UTF8, 0, vol.c_str(), -1, NULL, 0);
-    std::wstring wvol(wlen, 0);
+    if (wlen <= 0) return false;
+    std::wstring wvol;
+    wvol.resize(wlen);
     MultiByteToWideChar(CP_UTF8, 0, vol.c_str(), -1, &wvol[0], wlen);
 
     HANDLE h = CreateFileW(
@@ -85,6 +87,9 @@ bool MftReader::has_admin_privileges() {
 }
 
 bool MftReader::scan_volume(const std::string& drive_path, FileTree& tree, ScanStats& stats) {
+    (void)drive_path;
+    (void)tree;
+    (void)stats;
     // Linux uses native kernel POSIX crawler (statx / getdents)
     return false;
 }

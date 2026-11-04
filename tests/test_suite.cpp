@@ -180,11 +180,17 @@ void run_security_qc_tests() {
     RUN_TEST("Reject Windows DOS device with extension 'nul.txt'", !Security::is_path_safe_to_read("nul.txt"));
     RUN_TEST("Reject UNC DOS device path '\\\\.\\CON'", !Security::is_path_safe_to_read("\\\\.\\CON"));
 
-    // 2.3 Dangerous Characters and Null Byte Injections
+    // 2.3 Dangerous Characters, Shell Metacharacters and Null Byte Injections
     RUN_TEST("Reject null-byte injection in path",
              Security::contains_dangerous_chars(std::string("file.txt\0.exe", 12)));
     RUN_TEST("Reject unprintable control characters in path",
              Security::contains_dangerous_chars("bad\x01\x02path"));
+    RUN_TEST("Reject shell injection metacharacters in path (';', '&', '|', '`', '$')",
+             !Security::is_path_safe_to_read("/var/log;rm -rf /") &&
+             !Security::is_path_safe_to_read("/tmp/foo&bar") &&
+             !Security::is_path_safe_to_read("/tmp/foo|bar") &&
+             !Security::is_path_safe_to_read("/tmp/`whoami`") &&
+             !Security::is_path_safe_to_read("/tmp/$USER"));
 
     // 2.4 Protected Operating System Path Blacklist
     RUN_TEST("Block root volume 'C:\\'", Security::is_protected_system_path("C:\\"));

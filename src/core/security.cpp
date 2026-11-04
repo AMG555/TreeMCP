@@ -122,6 +122,14 @@ std::string Security::canonicalize_path(const std::string& raw_path) {
 bool Security::is_path_safe_to_read(const std::string& path) {
     if (path.empty()) return false;
 
+    // 0. Reject dangerous control characters, null bytes, and shell metacharacters
+    if (contains_dangerous_chars(path)) return false;
+    for (char c : path) {
+        if (c == '"' || c == ';' || c == '&' || c == '|' || c == '`' || c == '$' || c == '\n' || c == '\r') {
+            return false;
+        }
+    }
+
     std::string p = path;
     for (char& c : p) c = static_cast<char>(tolower(c));
 
@@ -254,21 +262,27 @@ bool Security::is_protected_system_path(const std::string& raw_path) {
     wchar_t win_dir[MAX_PATH] = {0};
     if (GetWindowsDirectoryW(win_dir, MAX_PATH)) {
         int sz = WideCharToMultiByte(CP_UTF8, 0, win_dir, -1, NULL, 0, NULL, NULL);
-        std::string s_win(sz, 0);
-        WideCharToMultiByte(CP_UTF8, 0, win_dir, -1, &s_win[0], sz, NULL, NULL);
-        if (!s_win.empty() && s_win.back() == '\0') s_win.pop_back();
-        for (char& c : s_win) { if (c == '/') c = '\\'; c = static_cast<char>(tolower(c)); }
-        if (win_p == s_win || win_p.find(s_win + "\\") == 0) return true;
+        if (sz > 0) {
+            std::string s_win;
+            s_win.resize(sz);
+            WideCharToMultiByte(CP_UTF8, 0, win_dir, -1, &s_win[0], sz, NULL, NULL);
+            if (!s_win.empty() && s_win.back() == '\0') s_win.pop_back();
+            for (char& c : s_win) { if (c == '/') c = '\\'; c = static_cast<char>(tolower(c)); }
+            if (win_p == s_win || win_p.find(s_win + "\\") == 0) return true;
+        }
     }
 
     wchar_t user_prof[MAX_PATH] = {0};
     if (GetEnvironmentVariableW(L"USERPROFILE", user_prof, MAX_PATH)) {
         int sz = WideCharToMultiByte(CP_UTF8, 0, user_prof, -1, NULL, 0, NULL, NULL);
-        std::string s_prof(sz, 0);
-        WideCharToMultiByte(CP_UTF8, 0, user_prof, -1, &s_prof[0], sz, NULL, NULL);
-        if (!s_prof.empty() && s_prof.back() == '\0') s_prof.pop_back();
-        for (char& c : s_prof) { if (c == '/') c = '\\'; c = static_cast<char>(tolower(c)); }
-        if (win_p == s_prof) return true;
+        if (sz > 0) {
+            std::string s_prof;
+            s_prof.resize(sz);
+            WideCharToMultiByte(CP_UTF8, 0, user_prof, -1, &s_prof[0], sz, NULL, NULL);
+            if (!s_prof.empty() && s_prof.back() == '\0') s_prof.pop_back();
+            for (char& c : s_prof) { if (c == '/') c = '\\'; c = static_cast<char>(tolower(c)); }
+            if (win_p == s_prof) return true;
+        }
     }
 #else
     const char* home = getenv("HOME");

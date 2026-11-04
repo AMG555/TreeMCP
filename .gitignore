@@ -3,10 +3,9 @@
 *.obj
 *.pdb
 *.ilk
-
-# Executables (optional: keep TreeMCP.exe if user wants binary in repo, or ignore if building from source)
-# Commented out so users clone and run immediately, or track if preferred:
-# TreeMCP.exe
+test_runner.exe
+test_suite.exe
+treemcp
 
 # Editor & OS files
 .vscode/
@@ -15,6 +14,7 @@
 *~
 Thumbs.db
 Desktop.ini
+.DS_Store
 
 # Logs & temp
 *.log
