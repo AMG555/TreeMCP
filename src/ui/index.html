@@ -171,6 +171,51 @@
         <!-- Tab 4: MCP Server Dashboard -->
         <div id="pane-mcp" class="tab-content-pane">
           <div class="mcp-dashboard">
+
+            <!-- MCP Connection Guide Card -->
+            <div class="mcp-connection-card">
+              <div class="mcp-conn-header">
+                <div class="conn-title-group">
+                  <span class="conn-icon">🔌</span>
+                  <div>
+                    <div class="conn-title">Connect MCP to AI Assistant</div>
+                    <div class="conn-sub">One-click config for Claude Desktop, Cursor, Antigravity & Windsurf</div>
+                  </div>
+                </div>
+                <div class="conn-tabs">
+                  <button class="conn-tab-btn active" data-client="claude">Claude Desktop</button>
+                  <button class="conn-tab-btn" data-client="cursor">Cursor</button>
+                  <button class="conn-tab-btn" data-client="antigravity">Antigravity</button>
+                  <button class="conn-tab-btn" data-client="windsurf">Windsurf</button>
+                </div>
+              </div>
+
+              <div class="conn-path-info">
+                <span class="path-label">Config Location:</span>
+                <code id="mcp-config-path" class="path-code">%APPDATA%\Claude\claude_desktop_config.json</code>
+              </div>
+
+              <div class="mcp-code-wrapper">
+                <pre class="mcp-json-pre" id="mcp-json-snippet">{
+  "mcpServers": {
+    "treemcp": {
+      "command": "TreeMCP.exe",
+      "args": ["--mcp"]
+    }
+  }
+}</pre>
+                <button class="ribbon-btn btn-primary btn-copy-json" id="btn-copy-mcp" title="Copy configuration to clipboard">
+                  <span class="btn-icon">📋</span>
+                  <span id="copy-btn-text">Copy JSON</span>
+                </button>
+              </div>
+
+              <div class="conn-footer-hint">
+                <span>💡 <b>Automated 1-Click Setup:</b> Run <code>irm https://raw.githubusercontent.com/AMG555/TreeMCP/main/install.ps1 | iex</code> in PowerShell to auto-register into all installed AI clients instantly.</span>
+              </div>
+            </div>
+
+            <!-- Metrics Grid -->
             <div class="mcp-stat-grid">
               <div class="mcp-stat-box">
                 <div class="stat-box-title">AI Tool Invocations</div>
@@ -207,8 +252,20 @@
               <span>64 KB Payload Ceiling</span>
             </div>
 
+            <div class="mcp-tools-reference">
+              <div class="section-heading">Exposed Fast Tools</div>
+              <div class="tools-pills">
+                <span class="tool-pill" title="Run fast multi-threaded file tree scan"><code>treemcp_scan</code></span>
+                <span class="tool-pill" title="Retrieve top largest files and folders"><code>treemcp_top_hogs</code></span>
+                <span class="tool-pill" title="File extension distribution matrix"><code>treemcp_extension_summary</code></span>
+                <span class="tool-pill" title="Instant drive status in ~25 tokens"><code>treemcp_drive_summary</code></span>
+                <span class="tool-pill" title="Filter files by name and size"><code>treemcp_search</code></span>
+                <span class="tool-pill" title="Non-destructive safe recycle deletion"><code>treemcp_clean</code></span>
+              </div>
+            </div>
+
             <div class="mcp-terminal-log" id="mcp-log">
-              <div class="log-line-init">[Security Guard Active] Listening for Model Context Protocol commands on port 8080...</div>
+              <div class="log-line-init">[Security Guard Active] Listening for Model Context Protocol commands on stdio & http://127.0.0.1:4242/mcp...</div>
             </div>
           </div>
         </div>

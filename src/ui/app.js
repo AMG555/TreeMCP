@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   setupTabs();
   setupSplitter();
+  setupMcpConfigCard();
   setupEventListeners();
   loadDrives();
   startMcpEventStream();
@@ -103,6 +104,111 @@ function setupSplitter() {
       treemapRenderer.resize();
     }
   });
+
+  // Touchscreen Drag Support
+  splitter.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    isDragging = true;
+    startY = e.touches[0].clientY;
+    startHeight = upperPane.getBoundingClientRect().height;
+    splitter.classList.add('dragging');
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const dy = e.touches[0].clientY - startY;
+    const viewportHeight = viewport.getBoundingClientRect().height;
+    const newHeight = Math.max(120, Math.min(viewportHeight - 120, startHeight + dy));
+    upperPane.style.height = `${newHeight}px`;
+    treemapRenderer.resize();
+  }, { passive: true });
+
+  window.addEventListener('touchend', () => {
+    if (isDragging) {
+      isDragging = false;
+      splitter.classList.remove('dragging');
+      treemapRenderer.resize();
+    }
+  });
+}
+
+function setupMcpConfigCard() {
+  const configs = {
+    claude: {
+      path: '%APPDATA%\\Claude\\claude_desktop_config.json',
+      json: JSON.stringify({
+        mcpServers: {
+          treemcp: {
+            command: "TreeMCP.exe",
+            args: ["--mcp"]
+          }
+        }
+      }, null, 2)
+    },
+    cursor: {
+      path: '%USERPROFILE%\\.cursor\\mcp.json',
+      json: JSON.stringify({
+        mcpServers: {
+          treemcp: {
+            command: "TreeMCP.exe",
+            args: ["--mcp"]
+          }
+        }
+      }, null, 2)
+    },
+    antigravity: {
+      path: '%USERPROFILE%\\.gemini\\config\\mcp_config.json',
+      json: JSON.stringify({
+        mcpServers: {
+          treemcp: {
+            command: "TreeMCP.exe",
+            args: ["--mcp"]
+          }
+        }
+      }, null, 2)
+    },
+    windsurf: {
+      path: '~/.codeium/windsurf/mcp_config.json',
+      json: JSON.stringify({
+        mcpServers: {
+          treemcp: {
+            command: "TreeMCP.exe",
+            args: ["--mcp"]
+          }
+        }
+      }, null, 2)
+    }
+  };
+
+  const buttons = document.querySelectorAll('.conn-tab-btn');
+  const pathElem = document.getElementById('mcp-config-path');
+  const snippetElem = document.getElementById('mcp-json-snippet');
+  const copyBtn = document.getElementById('btn-copy-mcp');
+  const copyBtnText = document.getElementById('copy-btn-text');
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      buttons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const client = btn.dataset.client;
+      if (configs[client]) {
+        pathElem.textContent = configs[client].path;
+        snippetElem.textContent = configs[client].json;
+      }
+    });
+  });
+
+  if (copyBtn) {
+    copyBtn.addEventListener('click', () => {
+      const textToCopy = snippetElem.textContent;
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        if (copyBtnText) {
+          copyBtnText.textContent = 'Copied!';
+          setTimeout(() => { copyBtnText.textContent = 'Copy JSON'; }, 1800);
+        }
+      });
+    });
+  }
 }
 
 function setupEventListeners() {
