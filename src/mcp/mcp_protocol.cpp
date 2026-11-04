@@ -84,7 +84,7 @@ std::string McpProtocol::handle_initialize(const std::string& id) {
     return make_json_rpc_result(id,
         "{\"protocolVersion\":\"2024-11-05\","
         "\"capabilities\":{\"tools\":{},\"resources\":{}},"
-        "\"serverInfo\":{\"name\":\"TreeMCP\",\"version\":\"1.0.0\"}}"
+        "\"serverInfo\":{\"name\":\"TreeMCP\",\"version\":\"1.1.0\"}}"
     );
 }
 

@@ -7,11 +7,11 @@
 ### Ultra-Fast Lightweight Disk Space Analyzer & Hardened Model Context Protocol (MCP) Server
 **Cross-Platform: Windows & Linux**
 
-[![Download TreeMCP](https://img.shields.io/badge/⬇️_Download-TreeMCP.exe_(v1.0.0)-20bf6b?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/AMG555/TreeMCP/releases/download/v1.0.0/TreeMCP.exe)
+[![Download TreeMCP](https://img.shields.io/badge/⬇️_Download-TreeMCP.exe_(v1.1.0)-20bf6b?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/AMG555/TreeMCP/releases/download/v1.1.0/TreeMCP.exe)
 [![GitHub Release](https://img.shields.io/github/v/release/AMG555/TreeMCP?style=for-the-badge&color=3867d6)](https://github.com/AMG555/TreeMCP/releases/latest)
 
 [![CI](https://github.com/AMG555/TreeMCP/actions/workflows/ci.yml/badge.svg)](https://github.com/AMG555/TreeMCP/actions)
-[![Tests: 59 Passed](https://img.shields.io/badge/Tests-59%20Passed-brightgreen)](tests/test_suite.cpp)
+[![Tests: 60 Passed](https://img.shields.io/badge/Tests-60%20Passed-brightgreen)](tests/test_suite.cpp)
 [![C++17](https://img.shields.io/badge/Language-C%2B%2B17-00599C?logo=c%2B%2B&logoColor=white)](https://isocpp.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D6?logo=linux&logoColor=white)](https://github.com/AMG555/TreeMCP)
 [![MCP](https://img.shields.io/badge/MCP-2024--11--05-10ac84?logo=anthropic&logoColor=white)](https://modelcontextprotocol.io/)
@@ -32,7 +32,7 @@
 ## 📥 Direct Download & Instant Setup
 
 ### Option 1: Standalone Download (Windows)
-* **[⬇️ Download TreeMCP.exe (v1.0.0 - Windows x64)](https://github.com/AMG555/TreeMCP/releases/download/v1.0.0/TreeMCP.exe)** (~170 KB)
+* **[⬇️ Download TreeMCP.exe (v1.1.0 - Windows x64)](https://github.com/AMG555/TreeMCP/releases/download/v1.1.0/TreeMCP.exe)** (< 300 KB)
 * All releases & checksums: **[GitHub Releases Page](https://github.com/AMG555/TreeMCP/releases)**
 
 ---
@@ -41,7 +41,7 @@
 Paste this prompt into **Claude Code**, **Antigravity**, **Cursor**, or **Windsurf**:
 
 ```markdown
-Download the latest TreeMCP standalone binary from https://github.com/AMG555/TreeMCP/releases/download/v1.0.0/TreeMCP.exe, place it in %LOCALAPPDATA%\TreeMCP\TreeMCP.exe (or clone and run `make` on Linux to build ~/.local/bin/treemcp), register it in your active mcpServers configuration with command `TreeMCP.exe` and args `["--mcp"]`, and test the connection by invoking the `treemcp_drive_summary` tool.
+Download the latest TreeMCP standalone binary from https://github.com/AMG555/TreeMCP/releases/download/v1.1.0/TreeMCP.exe, place it in %LOCALAPPDATA%\TreeMCP\TreeMCP.exe (or clone and run `make` on Linux to build ~/.local/bin/treemcp), register it in your active mcpServers configuration with command `TreeMCP.exe` and args `["--mcp"]`, and test the connection by invoking the `treemcp_drive_summary` tool.
 ```
 
 ---
@@ -252,8 +252,8 @@ Full threat model and vulnerability disclosure details in [SECURITY.md](SECURITY
 
 ### Windows
 ```cmd
-# 1. Download pre-built binary (~170 KB)
-# https://github.com/AMG555/TreeMCP/releases/download/v1.0.0/TreeMCP.exe
+# 1. Download pre-built binary (< 300 KB)
+# https://github.com/AMG555/TreeMCP/releases/download/v1.1.0/TreeMCP.exe
 
 # 2. Or build from source
 build.bat

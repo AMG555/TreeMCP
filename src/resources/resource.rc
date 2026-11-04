@@ -8,8 +8,8 @@
 
 // 3. Version Information
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION     1,0,0,0
-PRODUCTVERSION  1,0,0,0
+FILEVERSION     1,1,0,0
+PRODUCTVERSION  1,1,0,0
 FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
 FILEFLAGS       0
 FILEOS          VOS_NT_WINDOWS32
@@ -22,12 +22,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "TreeMCP Project\0"
             VALUE "FileDescription",  "TreeMCP - High Speed Disk Space Analyzer & MCP Server\0"
-            VALUE "FileVersion",      "1.0.0.0\0"
+            VALUE "FileVersion",      "1.1.0.0\0"
             VALUE "InternalName",     "TreeMCP\0"
             VALUE "LegalCopyright",   "Copyright (C) 2026 TreeMCP Contributors. MIT License.\0"
             VALUE "OriginalFilename", "TreeMCP.exe\0"
             VALUE "ProductName",      "TreeMCP\0"
-            VALUE "ProductVersion",   "1.0.0\0"
+            VALUE "ProductVersion",   "1.1.0\0"
             VALUE "Comments",         "Ultra-fast disk space analyzer with Model Context Protocol (MCP) server\0"
         END
     END
