@@ -35,6 +35,7 @@ g++ -O3 -std=c++17 ^
     src/core/security.cpp ^
     src/mcp/token_optimizer.cpp ^
     src/mcp/mcp_protocol.cpp ^
+    src/ui/native_window.cpp ^
     %RES_OBJ% ^
     -o TreeMCP.exe ^
     -lws2_32 -ladvapi32 -lole32 -lshell32 -lcomctl32

@@ -37,6 +37,7 @@ using socket_t = int;
 #include "mcp/mcp_protocol.h"
 #include "mcp/token_optimizer.h"
 #include "ui/embedded_assets.h"
+#include "ui/native_window.h"
 
 using namespace TreeMCP;
 
@@ -597,55 +598,24 @@ void run_web_server(int initial_port) {
     std::cout << "  * Desktop UI:       http://127.0.0.1:" << port << "/?token=" << g_session_token << "\n";
 
     // Launch UI once port is verified
-    std::thread([port]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(300));
-        std::string target_url = "http://127.0.0.1:" + std::to_string(port) + "/?token=" + g_session_token;
+    std::string target_url = "http://127.0.0.1:" + std::to_string(port) + "/?token=" + g_session_token;
+
 #ifdef _WIN32
-        // Launch as an isolated standalone native app window (no address bar, no tabs, no browser chrome)
-        char local_app_data[MAX_PATH];
-        std::string profile_dir;
-        if (GetEnvironmentVariableA("LOCALAPPDATA", local_app_data, MAX_PATH) > 0) {
-            profile_dir = std::string(local_app_data) + "\\TreeMCP\\profile";
-            CreateDirectoryA(profile_dir.c_str(), NULL);
-        }
-
-        std::vector<std::string> engines = {
-            "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-            "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-            "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-            "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
-        };
-
-        bool window_launched = false;
-        for (const auto& exe : engines) {
-            DWORD attr = GetFileAttributesA(exe.c_str());
-            if (attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
-                std::string cmd = "\"" + exe + "\" --app=\"" + target_url + "\"";
-                if (!profile_dir.empty()) {
-                    cmd += " --user-data-dir=\"" + profile_dir + "\"";
-                }
-                cmd += " --no-first-run --no-default-browser-check --window-size=1280,820";
-
-                STARTUPINFOA si{};
-                PROCESS_INFORMATION pi{};
-                si.cb = sizeof(si);
-                if (CreateProcessA(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-                    CloseHandle(pi.hProcess);
-                    CloseHandle(pi.hThread);
-                    window_launched = true;
-                    break;
-                }
-            }
-        }
-
-        if (!window_launched) {
-            ShellExecuteA(NULL, "open", target_url.c_str(), NULL, NULL, SW_SHOWNORMAL);
-        }
+    // Run genuine native Win32 window host (TreeMCP.exe process in Task Manager)
+    std::thread([target_url]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        NativeWindow::run_native_window(target_url, 1280, 820);
+        // Clean shutdown when user closes the native app window
+        g_server_running = false;
+        std::exit(0);
+    }).detach();
 #else
+    std::thread([target_url]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
         std::string cmd = "xdg-open \"" + target_url + "\" >/dev/null 2>&1 &";
         system(cmd.c_str());
-#endif
     }).detach();
+#endif
 
     while (g_server_running) {
         socket_t client_sock = accept(server_sock, NULL, NULL);
