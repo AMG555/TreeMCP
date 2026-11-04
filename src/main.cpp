@@ -726,7 +726,13 @@ int main(int argc, char* argv[]) {
     }
 
     // Mode 1: MCP Stdio Server
-    if (argc >= 2 && std::string(argv[1]) == "--mcp") {
+    if (argc >= 2 && (std::string(argv[1]) == "--mcp" || std::string(argv[1]) == "--mcp-stdio")) {
+        // If launched with admin rights, ensure backup/restore privileges are enabled in token
+        if (MftReader::has_admin_privileges()) {
+            MftReader::enable_privilege(L"SeBackupPrivilege");
+            MftReader::enable_privilege(L"SeRestorePrivilege");
+            MftReader::enable_privilege(L"SeTakeOwnershipPrivilege");
+        }
         g_mcp->run_stdio_server();
         return 0;
     }

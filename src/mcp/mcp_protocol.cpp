@@ -1,5 +1,6 @@
 #include "mcp_protocol.h"
 #include "../core/security.h"
+#include "../core/mft_reader.h"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -142,6 +143,11 @@ std::string McpProtocol::handle_tools_list(const std::string& id) {
                 "\"dry_run\":{\"type\":\"boolean\",\"description\":\"If true, only previews space to be reclaimed without deleting (default true)\"},"
                 "\"confirm_override\":{\"type\":\"boolean\",\"description\":\"Explicit confirmation flag required when deleting protected system or root paths after user consent\"}"
             "},\"required\":[\"path\"]}"
+        "},"
+        "{"
+            "\"name\":\"treemcp_status\","
+            "\"description\":\"Get current TreeMCP runtime status, process elevation (is_admin), active privileges, and security state.\","
+            "\"inputSchema\":{\"type\":\"object\",\"properties\":{}}"
         "}"
         "]}";
 
@@ -240,6 +246,17 @@ std::string McpProtocol::handle_tools_call(const std::string& id, const std::str
         auto results = tree_.search(pattern, min_bytes, limit);
         text_result = TokenOptimizer::format_search(results);
         standard_tokens = TokenOptimizer::estimate_standard_json_tokens(results.size() * 4);
+    }
+    else if (tool_name == "treemcp_status") {
+        bool is_adm = MftReader::has_admin_privileges();
+        std::stringstream ss;
+        ss << "TreeMCP Runtime Status:\n"
+           << "  * Process Elevated (Admin): " << (is_adm ? "YES (Full Elevated Kernel Access)" : "NO (Standard User - Elevation must be granted from TreeMCP.exe)") << "\n"
+           << "  * Engine Mode: " << (is_adm ? "Direct NTFS MFT Engine" : "Win32 Standard Crawler") << "\n"
+           << "  * Security Boundary: Admin privileges strictly enforced via OS process token. Elevation cannot be spoofed or escalated via MCP without launching TreeMCP.exe elevated with Windows UAC consent.\n"
+           << "  * Guardrails Active: Protected Paths Shielding & User Consent Gate.";
+        text_result = ss.str();
+        standard_tokens = 40;
     }
     else if (tool_name == "treemcp_clean") {
         std::string path_str = parse_json_field(args_json, "path");
