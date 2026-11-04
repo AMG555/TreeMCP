@@ -27,6 +27,16 @@ class TreemapRenderer {
 
   // Exact WizTree Color Matrix
   static EXT_COLORS = {
+    '.vmdk': '#9c27b0', // Virtual Disks (Vivid Violet)
+    '.vdi': '#9c27b0',
+    '.vmem': '#9c27b0',
+    '.vhdx': '#9c27b0',
+    '.vhd': '#9c27b0',
+    '.iso': '#9c27b0',
+    '.img': '#9c27b0',
+    '.ova': '#9c27b0',
+    '.ovf': '#9c27b0',
+    '.qcow2': '#9c27b0',
     '.dll': '#8dc63f',
     '[no extension]': '#4a90e2',
     '': '#4a90e2',
@@ -500,57 +510,58 @@ class TreemapRenderer {
 
       // van Wijk 3D Parabolic Curved Cushion Lighting
       if (w > 2 && h > 2) {
-        const rad = Math.max(w, h) * 0.85;
-        const cx = x + (w * 0.35);
-        const cy = y + (h * 0.35);
+        // High-fidelity WizTree cushion curvature
+        const cx = x + (w * 0.38);
+        const cy = y + (h * 0.38);
+        const rad = Math.max(w, h) * 0.95;
 
-        const radial = ctx.createRadialGradient(cx, cy, 1, cx, cy, rad);
-        radial.addColorStop(0, 'rgba(255, 255, 255, 0.42)');
-        radial.addColorStop(0.3, 'rgba(255, 255, 255, 0.10)');
-        radial.addColorStop(0.68, 'rgba(0, 0, 0, 0.16)');
-        radial.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
+        const radial = ctx.createRadialGradient(cx, cy, 2, cx, cy, rad);
+        radial.addColorStop(0, 'rgba(255, 255, 255, 0.48)');
+        radial.addColorStop(0.25, 'rgba(255, 255, 255, 0.15)');
+        radial.addColorStop(0.60, 'rgba(0, 0, 0, 0.12)');
+        radial.addColorStop(1, 'rgba(0, 0, 0, 0.62)');
 
         ctx.fillStyle = radial;
         ctx.fillRect(x, y, w, h);
 
-        // Top/Left 1px specular bevel
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.30)';
+        // Specular Top/Left 1px Inner Bevel
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.42)';
         ctx.fillRect(x, y, w, 1);
         ctx.fillRect(x, y, 1, h);
 
-        // Bottom/Right 1px shadow bevel
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+        // Shadow Bottom/Right 1px Inner Bevel
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.58)';
         ctx.fillRect(x, y + h - 1, w, 1);
         ctx.fillRect(x + w - 1, y, 1, h);
       }
 
       // Crisp 1px dark separation between adjacent files
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.strokeStyle = '#000000';
       ctx.lineWidth = 1;
       ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
 
       // File label if large enough
-      if (w > 48 && h > 20) {
+      if (w > 38 && h > 16) {
         ctx.save();
         ctx.beginPath();
         ctx.rect(x + 2, y + 2, Math.max(0, w - 4), Math.max(0, h - 4));
         ctx.clip();
 
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
         ctx.shadowBlur = 3;
         ctx.shadowOffsetX = 1;
         ctx.shadowOffsetY = 1;
 
         ctx.fillStyle = '#ffffff';
-        ctx.font = '600 10.5px "Segoe UI", system-ui, sans-serif';
+        ctx.font = '600 10px "Segoe UI", system-ui, sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
-        ctx.fillText(tile.name, x + 4, y + 4);
+        ctx.fillText(tile.name, x + 3, y + 3);
 
-        if (h > 34) {
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-          ctx.font = '500 9.5px "Consolas", monospace';
-          ctx.fillText(this.formatSize(tile.size), x + 4, y + 17);
+        if (h > 30) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.font = '500 9px "Consolas", monospace';
+          ctx.fillText(this.formatSize(tile.size), x + 3, y + 15);
         }
         ctx.restore();
       }
@@ -570,22 +581,24 @@ class TreemapRenderer {
       if (w <= 4 || h <= 4) continue;
 
       // Clean WizTree-like folder boundary line (no solid dark fill!)
-      ctx.strokeStyle = tile.depth <= 1 ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.20)';
+      ctx.strokeStyle = tile.depth <= 1 ? 'rgba(255, 255, 255, 0.55)' : 'rgba(255, 255, 255, 0.28)';
       ctx.lineWidth = 1;
       ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
 
       // Overlaid folder title (only on prominent directories, e.g. depth 1 or 2, or large width)
-      if (tile.depth <= 3 && w > 80 && h > 30) {
+      if (tile.depth <= 3 && w > 70 && h > 24) {
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
         ctx.shadowBlur = 4;
-        ctx.fillStyle = '#f8fafc';
-        ctx.font = '600 10.5px "Segoe UI", system-ui, sans-serif';
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '700 10.5px "Segoe UI", system-ui, sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
 
         const label = tile.name + '\\ (' + this.formatSize(tile.size) + ')';
-        ctx.fillText(label, x + 5, y + 4);
+        ctx.fillText(label, x + 4, y + 3);
         ctx.restore();
       }
     }

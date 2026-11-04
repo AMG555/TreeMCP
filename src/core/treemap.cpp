@@ -138,7 +138,7 @@ void TreemapEngine::layout_row(
             }
         }
 
-        // Only emit folder bounding box if it has no drawn children (empty folder) or for hierarchical inspection
+        // Emit directory outline only if it has children or is a container
         out_tiles.push_back(tile);
 
         curr_pos += item_len;
