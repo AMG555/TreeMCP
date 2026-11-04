@@ -10,263 +10,329 @@
 </head>
 <body>
 
-  <!-- Top Toolbar -->
-  <header class="toolbar">
-    <div class="brand">
-      <img src="logo.svg" alt="TreeMCP Logo" class="brand-logo" width="26" height="26">
-      <span>TreeMCP</span>
-      <span class="app-version">v1.1.0</span>
-      <span class="mcp-badge">MCP ONLINE</span>
-      <span class="mcp-badge" style="background: linear-gradient(135deg, #3867d6, #20bf6b);">🛡️ SHIELD ACTIVE</span>
-    </div>
-
-    <select id="drive-select" class="drive-select" title="Select Drive (Ctrl+D)">
-      <option value="C:\">C: [Scanning drives...]</option>
-    </select>
-
-    <input type="text" id="custom-path" class="custom-path-input" placeholder="Select drive or enter custom folder path...">
-
-    <button id="btn-scan" class="btn btn-primary" title="Start Scan (Enter)">
-      <span>▶</span>
-      <span>Scan</span>
-    </button>
-
-    <button id="btn-refresh" class="btn btn-secondary" title="Rescan Current Path (F5)">
-      <span>🔄</span>
-      <span>Rescan</span>
-    </button>
-
-    <input type="text" id="search-filter" class="search-input" placeholder="Filter: *.iso, >100MB... (Ctrl+F)">
-
-    <button id="btn-about" class="btn btn-ghost" title="About TreeMCP, Shortcuts & Security">
-      <span>ℹ️</span>
-      <span>About</span>
-    </button>
-  </header>
-
-  <!-- Drive Usage Gauge Strip -->
-  <section class="usage-strip">
-    <div class="usage-bar-container">
-      <div id="drive-usage-fill" class="usage-bar-fill" style="width: 45%;"></div>
-      <div id="drive-usage-text" class="usage-bar-text">Loading drive space metrics...</div>
-    </div>
-    <div class="stats-badges">
-      <div class="stats-badge">Files: <span id="stat-files">0</span></div>
-      <div class="stats-badge">Folders: <span id="stat-folders">0</span></div>
-      <div class="stats-badge">Size: <span id="stat-size">0 B</span></div>
-      <div class="stats-badge">Time: <span id="stat-time">0.00s</span></div>
-    </div>
-  </section>
-
-  <!-- Main Split Layout -->
-  <main class="main-content">
-    
-    <!-- Upper Split: Tabs View -->
-    <div class="split-top">
-      <div class="tab-headers">
-        <div class="tab-header active" data-target="pane-tree">
-          <span>📁</span>
-          <span>Tree View</span>
-        </div>
-        <div class="tab-header" data-target="pane-ext">
-          <span>📊</span>
-          <span>File Extension Breakdown</span>
-        </div>
-        <div class="tab-header" data-target="pane-mcp">
-          <span>⚡</span>
-          <span>MCP Server & Security Guard</span>
-        </div>
+  <!-- Top Native-Feel Desktop Ribbon -->
+  <header class="desktop-ribbon">
+    <div class="ribbon-left">
+      <div class="brand">
+        <img src="logo.svg" alt="TreeMCP Logo" class="brand-logo" width="22" height="22">
+        <span class="brand-title">TreeMCP</span>
+        <span class="brand-version">v1.1.0</span>
       </div>
 
-      <div class="tab-content">
-        <!-- Tree View Pane -->
-        <div id="pane-tree" class="tab-pane" style="display: block;">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th style="width: 38%;">Name</th>
-                <th style="width: 14%;">% Parent</th>
-                <th style="width: 12%;">Size</th>
-                <th style="width: 12%;">Allocated</th>
-                <th style="width: 12%;">Files</th>
-                <th style="width: 12%;">Folders</th>
-              </tr>
-            </thead>
-            <tbody id="tree-table-body">
-              <tr>
-                <td colspan="6" style="text-align: center; color: #777; padding: 24px;">
-                  Select a drive above and click <b>Scan</b> to begin.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <div class="ribbon-sep"></div>
 
-        <!-- Extensions Pane -->
-        <div id="pane-ext" class="tab-pane" style="display: none;">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th style="width: 30%;">Extension</th>
-                <th style="width: 25%;">Total Size</th>
-                <th style="width: 25%;">% of Drive</th>
-                <th style="width: 20%;">File Count</th>
-              </tr>
-            </thead>
-            <tbody id="ext-table-body">
-              <tr>
-                <td colspan="4" style="text-align: center; color: #777; padding: 24px;">
-                  No scan data available.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <!-- Drive Selector with Integrated Capacity Info -->
+      <div class="drive-picker-wrap">
+        <label for="drive-select" class="ribbon-label">Drive:</label>
+        <select id="drive-select" class="ribbon-select" title="Select Drive (Ctrl+D)">
+          <option value="C:\">C: [Scanning drives...]</option>
+        </select>
+      </div>
 
-        <!-- MCP Inspector Pane -->
-        <div id="pane-mcp" class="tab-pane" style="display: none; height: 100%;">
-          <div class="mcp-panel">
-            <div class="mcp-metrics-row">
-              <div class="metric-card">
-                <div class="title">Queries Handled</div>
-                <div id="mcp-stat-queries" class="value">0</div>
-              </div>
-              <div class="metric-card">
-                <div class="title">Tokens Consumed (TreeMCP)</div>
-                <div id="mcp-stat-tokens-used" class="value">0</div>
-              </div>
-              <div class="metric-card">
-                <div class="title">Tokens Saved vs Standard JSON</div>
-                <div id="mcp-stat-tokens-saved" class="value savings">0</div>
-              </div>
-              <div class="metric-card">
-                <div class="title">Token Efficiency</div>
-                <div id="mcp-stat-savings-pct" class="value savings">94.8%</div>
-              </div>
-            </div>
+      <!-- Path Input -->
+      <div class="path-input-wrap">
+        <input type="text" id="custom-path" class="ribbon-input path-input" placeholder="Path (e.g. C:\ or C:\Users)" title="Target Path">
+      </div>
 
-            <div style="display: flex; gap: 10px; font-size: 11px; color: #20bf6b; background: rgba(32, 191, 107, 0.1); border: 1px solid #20bf6b; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px;">
-              <span>🛡️ <b>Active Security Guardrails:</b></span>
-              <span>• Windows Recycle Bin Safe-Delete</span>
-              <span>• Anti-DNS Rebinding Host Validation</span>
-              <span>• 256-bit Session Token (Anti-CSRF)</span>
-              <span>• Protected System Path Blacklist</span>
-              <span>• 64 KB Payload Cap</span>
-            </div>
+      <!-- Action Buttons -->
+      <button id="btn-scan" class="ribbon-btn btn-primary" title="Start High-Speed Scan (Enter)">
+        <span class="btn-icon">▶</span>
+        <span>Scan</span>
+      </button>
 
-            <div class="mcp-log-container" id="mcp-log">
-              <div>[Security Guard Active] Listening for AI agent tool invocations...</div>
-            </div>
+      <button id="btn-refresh" class="ribbon-btn btn-secondary" title="Rescan Directory (F5)">
+        <span class="btn-icon">🔄</span>
+        <span>Rescan</span>
+      </button>
+
+      <div class="ribbon-sep"></div>
+
+      <!-- Live Filter -->
+      <div class="filter-wrap">
+        <span class="filter-icon">🔍</span>
+        <input type="text" id="search-filter" class="ribbon-input filter-input" placeholder="Filter files (Ctrl+F)...">
+      </div>
+    </div>
+
+    <div class="ribbon-right">
+      <div class="scan-quick-stats" id="quick-stats">
+        <span class="stat-item"><span class="stat-lbl">Files:</span> <b id="stat-files">0</b></span>
+        <span class="stat-item"><span class="stat-lbl">Folders:</span> <b id="stat-folders">0</b></span>
+        <span class="stat-item"><span class="stat-lbl">Total:</span> <b id="stat-size">0 B</b></span>
+        <span class="stat-item"><span class="stat-lbl">Time:</span> <b id="stat-time" class="stat-highlight">0.00s</b></span>
+      </div>
+
+      <button id="btn-about" class="ribbon-btn btn-ghost" title="About TreeMCP & Security Guardrails">
+        <span>About</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Viewport with Draggable Splitter -->
+  <main class="main-viewport" id="viewport">
+
+    <!-- Upper View: Segmented Tables -->
+    <section class="split-pane split-top" id="pane-upper">
+      <div class="tab-bar">
+        <button class="tab-btn active" data-target="pane-tree">
+          <span class="tab-icon">📁</span>
+          <span>Tree View</span>
+        </button>
+        <button class="tab-btn" data-target="pane-top-hogs">
+          <span class="tab-icon">🔥</span>
+          <span>Top 100 Files</span>
+        </button>
+        <button class="tab-btn" data-target="pane-ext">
+          <span class="tab-icon">📊</span>
+          <span>File Types</span>
+        </button>
+        <button class="tab-btn" data-target="pane-mcp">
+          <span class="tab-icon">⚡</span>
+          <span>MCP Server</span>
+        </button>
+
+        <div class="tab-bar-spacer"></div>
+        <div id="drive-usage-badge" class="drive-usage-badge">Drive Space: Calculating...</div>
+      </div>
+
+      <div class="tab-body">
+        <!-- Tab 1: Tree View -->
+        <div id="pane-tree" class="tab-content-pane active">
+          <div class="table-container">
+            <table class="grid-table" id="tree-table">
+              <thead>
+                <tr>
+                  <th class="col-name" style="width: 38%;">Name</th>
+                  <th class="col-pct" style="width: 14%;">% Parent</th>
+                  <th class="col-size" style="width: 12%;">Size</th>
+                  <th class="col-alloc" style="width: 12%;">Allocated</th>
+                  <th class="col-num" style="width: 12%;">Files</th>
+                  <th class="col-num" style="width: 12%;">Folders</th>
+                </tr>
+              </thead>
+              <tbody id="tree-table-body">
+                <tr>
+                  <td colspan="6" class="table-placeholder">
+                    Select a drive above and click <b>Scan</b> to analyze storage.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
+        <!-- Tab 2: Top 100 Largest Files -->
+        <div id="pane-top-hogs" class="tab-content-pane">
+          <div class="table-container">
+            <table class="grid-table" id="hogs-table">
+              <thead>
+                <tr>
+                  <th style="width: 5%;">#</th>
+                  <th style="width: 25%;">File Name</th>
+                  <th style="width: 12%;">Size</th>
+                  <th style="width: 10%;">Extension</th>
+                  <th style="width: 48%;">Full Path</th>
+                </tr>
+              </thead>
+              <tbody id="hogs-table-body">
+                <tr>
+                  <td colspan="5" class="table-placeholder">
+                    Run a scan to view largest files.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 3: File Extension Matrix -->
+        <div id="pane-ext" class="tab-content-pane">
+          <div class="table-container">
+            <table class="grid-table" id="ext-table">
+              <thead>
+                <tr>
+                  <th style="width: 20%;">Extension</th>
+                  <th style="width: 20%;">Total Size</th>
+                  <th style="width: 35%;">% of Storage</th>
+                  <th style="width: 25%;">File Count</th>
+                </tr>
+              </thead>
+              <tbody id="ext-table-body">
+                <tr>
+                  <td colspan="4" class="table-placeholder">
+                    No scan data available.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 4: MCP Server Dashboard -->
+        <div id="pane-mcp" class="tab-content-pane">
+          <div class="mcp-dashboard">
+            <div class="mcp-stat-grid">
+              <div class="mcp-stat-box">
+                <div class="stat-box-title">AI Tool Invocations</div>
+                <div class="stat-box-num" id="mcp-stat-queries">0</div>
+                <div class="stat-box-sub">Local JSON-RPC 2.0</div>
+              </div>
+              <div class="mcp-stat-box">
+                <div class="stat-box-title">TreeMCP Tokens Consumed</div>
+                <div class="stat-box-num" id="mcp-stat-tokens-used">0</div>
+                <div class="stat-box-sub">Optimized Compact Format</div>
+              </div>
+              <div class="mcp-stat-box">
+                <div class="stat-box-title">Tokens Saved vs Raw JSON</div>
+                <div class="stat-box-num text-success" id="mcp-stat-tokens-saved">0</div>
+                <div class="stat-box-sub">Reduced Context Bloat</div>
+              </div>
+              <div class="mcp-stat-box">
+                <div class="stat-box-title">Context Reduction Rate</div>
+                <div class="stat-box-num text-success" id="mcp-stat-savings-pct">94.8%</div>
+                <div class="stat-box-sub">Token Compression Efficiency</div>
+              </div>
+            </div>
+
+            <div class="security-banner">
+              <span class="sec-tag">🛡️ Active Defenses:</span>
+              <span>Windows Recycle Bin Safe-Delete</span>
+              <span class="sec-dot">•</span>
+              <span>Anti-DNS Rebinding Host Verification</span>
+              <span class="sec-dot">•</span>
+              <span>256-bit Session Token (CSRF Shield)</span>
+              <span class="sec-dot">•</span>
+              <span>System Critical Blacklist</span>
+              <span class="sec-dot">•</span>
+              <span>64 KB Payload Ceiling</span>
+            </div>
+
+            <div class="mcp-terminal-log" id="mcp-log">
+              <div class="log-line-init">[Security Guard Active] Listening for Model Context Protocol commands on port 8080...</div>
+            </div>
+          </div>
+        </div>
       </div>
+    </section>
+
+    <!-- Draggable Horizontal Splitter -->
+    <div class="splitter-horizontal" id="splitter" title="Drag to resize panels">
+      <div class="splitter-grip"></div>
     </div>
 
-    <!-- Lower Split: Interactive Treemap -->
-    <div class="split-bottom">
-      <div class="treemap-toolbar">
+    <!-- Lower View: Dynamic Treemap Canvas -->
+    <section class="split-pane split-bottom" id="pane-lower">
+      <div class="treemap-header">
         <div class="breadcrumb-trail" id="breadcrumb-trail">
-          <span class="breadcrumb-item">Drive Root</span>
+          <span class="breadcrumb-item">Root</span>
         </div>
-        <div style="color: #888; font-size: 12px;">
-          Double-click folder to drill down | Right-click for options
+        <div class="treemap-legend">
+          <span class="legend-hint">Double-click folder to drill down • Right-click for options</span>
         </div>
       </div>
 
-      <div class="canvas-wrapper">
+      <div class="canvas-viewport" id="canvas-viewport">
         <canvas id="treemap-canvas"></canvas>
       </div>
-    </div>
+    </section>
 
   </main>
 
-  <!-- Status Bar -->
-  <footer class="status-bar">
+  <!-- Modern Native Status Bar -->
+  <footer class="app-status-bar">
     <div class="status-left">
+      <span class="status-indicator-dot"></span>
       <span id="status-text">Ready.</span>
-      <span id="status-selected" style="color: #fff; font-family: monospace;"></span>
+      <span class="status-sep">|</span>
+      <span id="status-selected" class="status-path-selection">None selected</span>
     </div>
     <div class="status-right">
-      <div class="status-mcp-online">
-        <span class="status-dot"></span>
-        <span>MCP 2024-11-05 Secure Active</span>
-      </div>
+      <span class="status-pill">MCP 2024-11-05 Active</span>
     </div>
   </footer>
 
-  <!-- Floating Tooltip -->
-  <div id="treemap-tooltip" class="treemap-tooltip"></div>
+  <!-- Floating HUD Tooltip Card -->
+  <div id="treemap-tooltip" class="floating-tooltip"></div>
 
-  <!-- Context Menu -->
-  <div id="context-menu" class="context-menu">
-    <div class="context-menu-item" id="ctx-copy-path">📋 Copy Path</div>
-    <div class="context-menu-item" id="ctx-open-explorer">📂 Open in File Explorer</div>
-    <div class="context-menu-item" id="ctx-mcp-inspect">⚡ Inspect with MCP</div>
-    <div class="context-menu-divider"></div>
-    <div class="context-menu-item context-danger" id="ctx-safe-recycle">🗑️ Move to Trash / Recycle Bin</div>
-    <div class="context-menu-item" id="ctx-properties">ℹ️ Properties</div>
+  <!-- Native Context Menu -->
+  <div id="context-menu" class="desktop-context-menu">
+    <div class="context-item" id="ctx-copy-path">
+      <span class="ctx-icon">📋</span>
+      <span>Copy Full Path</span>
+    </div>
+    <div class="context-item" id="ctx-open-explorer">
+      <span class="ctx-icon">📂</span>
+      <span>Open in File Explorer</span>
+    </div>
+    <div class="context-item" id="ctx-mcp-inspect">
+      <span class="ctx-icon">⚡</span>
+      <span>Inspect with MCP</span>
+    </div>
+    <div class="context-separator"></div>
+    <div class="context-item item-danger" id="ctx-safe-recycle">
+      <span class="ctx-icon">🗑️</span>
+      <span>Move to Recycle Bin / Trash</span>
+    </div>
+    <div class="context-item" id="ctx-properties">
+      <span class="ctx-icon">ℹ️</span>
+      <span>Properties</span>
+    </div>
   </div>
 
-  <!-- About App Modal -->
+  <!-- About App Modal Dialog -->
   <div id="modal-about" class="modal-overlay" style="display: none;">
-    <div class="modal-card">
+    <div class="modal-dialog">
       <div class="modal-header">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <img src="logo.svg" alt="TreeMCP" width="32" height="32">
+        <div class="modal-title-group">
+          <img src="logo.svg" alt="TreeMCP" width="28" height="28">
           <div>
-            <div style="font-size: 18px; font-weight: 700; color: #fff;">TreeMCP</div>
-            <div style="font-size: 12px; color: #a4b0be;">Ultra-Fast Disk Analyzer & Hardened MCP Server</div>
+            <div class="modal-title">TreeMCP <span class="badge-ver">v1.1.0</span></div>
+            <div class="modal-subtitle">High-Speed Disk Space Analyzer & Hardened MCP Server</div>
           </div>
         </div>
-        <button id="modal-close" class="modal-close-btn">&times;</button>
+        <button id="modal-close" class="modal-close" aria-label="Close">&times;</button>
       </div>
+
       <div class="modal-body">
-        <div class="about-grid">
-          <div class="about-item">
-            <span class="label">Version</span>
-            <span class="val">1.1.0 (Release)</span>
+        <div class="specs-grid">
+          <div class="spec-cell">
+            <span class="spec-k">Binary Footprint</span>
+            <span class="spec-v text-success">~170 KB (Zero Runtime Dependencies)</span>
           </div>
-          <div class="about-item">
-            <span class="label">Binary Size</span>
-            <span class="val" style="color: #20bf6b; font-weight: bold;">~170 KB (Zero Dependencies)</span>
+          <div class="spec-cell">
+            <span class="spec-k">Node Memory</span>
+            <span class="spec-v">48 Bytes / Node (CompactNode Pool)</span>
           </div>
-          <div class="about-item">
-            <span class="label">Node Footprint</span>
-            <span class="val">Strictly 48 Bytes (CompactNode)</span>
+          <div class="spec-cell">
+            <span class="spec-k">Scanning Engine</span>
+            <span class="spec-v">Direct Win32 FindFirstFileExW & MFT Reader</span>
           </div>
-          <div class="about-item">
-            <span class="label">Architecture</span>
-            <span class="val">Native C++17 • Win32 MFT & POSIX</span>
-          </div>
-          <div class="about-item">
-            <span class="label">Protocol</span>
-            <span class="val">MCP 2024-11-05 (JSON-RPC 2.0)</span>
-          </div>
-          <div class="about-item">
-            <span class="label">Token Efficiency</span>
-            <span class="val" style="color: #20bf6b;">94%–98% Token Reduction</span>
+          <div class="spec-cell">
+            <span class="spec-k">AI Protocol</span>
+            <span class="spec-v">Model Context Protocol (JSON-RPC 2.0)</span>
           </div>
         </div>
 
-        <div style="margin-top: 16px;">
-          <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #a4b0be; margin-bottom: 8px;">Keyboard Shortcuts</div>
-          <table class="shortcuts-table">
-            <tr><td><kbd>F5</kbd></td><td>Rescan current directory</td></tr>
-            <tr><td><kbd>Ctrl</kbd> + <kbd>F</kbd></td><td>Focus search filter</td></tr>
-            <tr><td><kbd>Ctrl</kbd> + <kbd>D</kbd></td><td>Select drive dropdown</td></tr>
-            <tr><td><kbd>Esc</kbd></td><td>Close dialogs / context menu</td></tr>
-          </table>
+        <div class="shortcuts-section">
+          <div class="section-heading">Keyboard Shortcuts</div>
+          <div class="shortcuts-list">
+            <div class="sc-row"><kbd>Enter</kbd> <span>Scan selected drive or custom folder</span></div>
+            <div class="sc-row"><kbd>F5</kbd> <span>Rescan current directory</span></div>
+            <div class="sc-row"><kbd>Ctrl</kbd>+<kbd>F</kbd> <span>Focus live filter search</span></div>
+            <div class="sc-row"><kbd>Ctrl</kbd>+<kbd>D</kbd> <span>Focus drive selection dropdown</span></div>
+            <div class="sc-row"><kbd>Esc</kbd> <span>Close dialogs / dismiss context menu</span></div>
+          </div>
         </div>
 
-        <div style="margin-top: 16px; padding: 10px; background: rgba(56, 103, 214, 0.1); border: 1px solid #3867d6; border-radius: 6px; font-size: 11px; color: #a4b0be;">
-          <span style="color: #fff; font-weight: bold;">🛡️ Security Mitigations:</span>
-          DEP/NX • High-Entropy ASLR • Stack Protector Strong • Anti-DNS Rebinding Host Check • 256-bit Session Token • Windows Recycle Bin / Linux Trash Safe-Delete • Protected System Path Blacklist • 64 KB Payload Ceiling.
+        <div class="security-summary-card">
+          <b>🛡️ Enterprise-Grade Security Architecture:</b><br>
+          DEP/NX • High-Entropy ASLR • Stack Protector Strong • Anti-DNS Rebinding Host Check • 256-bit Session Token (CSRF Defense) • Safe-Delete Recycle Bin Interceptor • System Critical Path Blacklist • 64 KB Max Buffer Boundary.
         </div>
       </div>
+
       <div class="modal-footer">
-        <a href="https://github.com/AMG555/TreeMCP" target="_blank" class="btn btn-secondary" style="text-decoration: none;">GitHub Repository</a>
-        <button id="modal-ok-btn" class="btn btn-primary">Close</button>
+        <a href="https://github.com/AMG555/TreeMCP" target="_blank" class="ribbon-btn btn-secondary" style="text-decoration: none;">GitHub Repository</a>
+        <button id="modal-ok-btn" class="ribbon-btn btn-primary">Close</button>
       </div>
     </div>
   </div>

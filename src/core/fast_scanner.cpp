@@ -129,8 +129,7 @@ void FastScanner::scan_recursive_win32(const std::wstring& dir_path, uint32_t pa
         uint64_t file_size = ((uint64_t)fd.nFileSizeHigh << 32) | fd.nFileSizeLow;
         uint64_t alloc_size = is_directory ? 0 : ((file_size + 4095) / 4096) * 4096;
 
-        std::string name_utf8 = utf16_to_utf8(fd.cFileName);
-        uint32_t node_idx = tree.add_node(name_utf8, file_size, alloc_size, parent_idx, is_directory, fd.dwFileAttributes);
+        uint32_t node_idx = tree.add_node_w(fd.cFileName, file_size, alloc_size, parent_idx, is_directory, fd.dwFileAttributes);
 
         if (is_directory) {
             if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {

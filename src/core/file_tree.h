@@ -19,6 +19,12 @@ public:
     uint32_t add_node(const std::string& name, uint64_t size, uint64_t allocated_size,
                       uint32_t parent_idx, bool is_dir, uint32_t attributes);
 
+#ifdef _WIN32
+    // High-speed Win32 direct wide-character ingestion (zero heap allocation)
+    uint32_t add_node_w(const wchar_t* wname, uint64_t size, uint64_t allocated_size,
+                        uint32_t parent_idx, bool is_dir, uint32_t attributes);
+#endif
+
     std::string get_name(uint32_t node_idx) const;
     std::string get_full_path(uint32_t node_idx) const;
     std::string get_extension(uint32_t node_idx) const;
@@ -67,6 +73,7 @@ private:
     std::vector<std::string> ext_pool_;
     std::unordered_map<std::string, uint16_t> ext_to_id_;
     uint16_t intern_ext(const std::string& ext);
+    uint16_t intern_ext_fast(const char* ext_data, size_t ext_len);
 };
 
 } // namespace TreeMCP

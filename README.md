@@ -32,8 +32,15 @@
 ## 📥 Direct Download & Instant Setup
 
 ### Option 1: Standalone Download (Windows)
-* **[⬇️ Download TreeMCP.exe (v1.1.0 - Windows x64)](https://github.com/AMG555/TreeMCP/releases/download/v1.1.0/TreeMCP.exe)** (< 300 KB)
+* **[⬇️ Download TreeMCP-v1.1.0-windows-x64.zip](https://github.com/AMG555/TreeMCP/releases/download/v1.1.0/TreeMCP-v1.1.0-windows-x64.zip)** (Recommended: Zip package prevents browser warnings)
+* **[⬇️ Download TreeMCP.exe (v1.1.0 Standalone Executable)](https://github.com/AMG555/TreeMCP/releases/download/v1.1.0/TreeMCP.exe)** (~320 KB)
 * All releases & checksums: **[GitHub Releases Page](https://github.com/AMG555/TreeMCP/releases)**
+
+> **ℹ️ Note on Windows SmartScreen / Browser Warnings:**
+> TreeMCP is a 100% open-source utility built transparently on GitHub Actions. Because it does not carry an expensive ($400/yr) proprietary corporate Authenticode certificate, Windows Defender SmartScreen or Chromium browsers may show an "Unrecognized app" notice on new releases:
+> * **Browser Download Notice**: Click `...` next to download -> **Keep** -> **Keep anyway**.
+> * **SmartScreen Popup**: Click **More info** -> **Run anyway**.
+> * **Or Instant Unblock via PowerShell**: Run `Unblock-File .\TreeMCP.exe` or use the 1-line installer below.
 
 ---
 

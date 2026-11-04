@@ -331,6 +331,33 @@ void handle_http_client(socket_t client_sock) {
             }
             auto tiles = TreemapEngine::compute_layout(g_tree, node_idx, 0, 0, 1000, 600, 2, 100 * 1024);
             body = "{\"tiles\":" + serialize_tiles(tiles) + "}";
+        } else if (clean_uri.find("/api/top-hogs") == 0) {
+            content_type = "application/json";
+            std::string limit_str = get_query_param(uri, "limit");
+            size_t limit = limit_str.empty() ? 100 : std::stoul(limit_str);
+            std::string filter = get_query_param(uri, "filter");
+            if (filter.empty()) filter = "files";
+            auto hogs = g_tree.get_top_hogs(g_tree.root_idx(), limit, 0, filter);
+            std::stringstream ss;
+            ss << "{\"items\":[";
+            for (size_t i = 0; i < hogs.size(); ++i) {
+                if (i > 0) ss << ",";
+                std::string esc_path;
+                for (char c : hogs[i].full_path) { if (c == '\\' || c == '"') esc_path += '\\'; esc_path += c; }
+                std::string ext = g_tree.get_extension(hogs[i].node_idx);
+                std::string name = g_tree.get_name(hogs[i].node_idx);
+                std::string esc_name;
+                for (char c : name) { if (c == '\\' || c == '"') esc_name += '\\'; esc_name += c; }
+                ss << "{\"node_idx\":" << hogs[i].node_idx
+                   << ",\"name\":\"" << esc_name << "\""
+                   << ",\"path\":\"" << esc_path << "\""
+                   << ",\"size\":" << hogs[i].size
+                   << ",\"extension\":\"" << ext << "\""
+                   << ",\"is_dir\":" << (hogs[i].is_dir ? "true" : "false")
+                   << "}";
+            }
+            ss << "]}";
+            body = ss.str();
         } else if (clean_uri == "/api/mcp-stats") {
             content_type = "application/json";
             std::stringstream ss;

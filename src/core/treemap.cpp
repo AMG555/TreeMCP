@@ -33,16 +33,35 @@ std::vector<TreemapTile> TreemapEngine::compute_layout(
         return tiles;
     }
 
-    double total_area = width * height;
     std::vector<Item> items;
     items.reserve(children.size());
 
     for (uint32_t c : children) {
         const auto& cnode = tree.get_node(c);
         if (cnode.size >= min_size_threshold) {
-            double norm_area = (static_cast<double>(cnode.size) / root_node.size) * total_area;
-            items.push_back({c, cnode.size, norm_area});
+            items.push_back({c, cnode.size, 0.0});
         }
+    }
+
+    if (items.empty()) return tiles;
+
+    // Cap items per level to prevent subpixel rendering thrashing
+    if (items.size() > 500) {
+        std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) {
+            return a.size > b.size;
+        });
+        items.resize(500);
+    }
+
+    uint64_t items_total_size = 0;
+    for (const auto& it : items) {
+        items_total_size += it.size;
+    }
+    if (items_total_size == 0) return tiles;
+
+    double total_area = width * height;
+    for (auto& it : items) {
+        it.area = (static_cast<double>(it.size) / items_total_size) * total_area;
     }
 
     if (items.empty()) return tiles;

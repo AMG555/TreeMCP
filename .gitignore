@@ -3,6 +3,7 @@
 *.obj
 *.pdb
 *.ilk
+*.zip
 test_runner.exe
 test_suite.exe
 treemcp

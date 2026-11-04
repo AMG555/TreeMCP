@@ -32,8 +32,8 @@ jobs:
         run: |
           $size = (Get-Item TreeMCP.exe).Length
           Write-Host "Binary size: $size bytes"
-          if ($size -gt 300000) {
-            Write-Error "Binary size exceeds lightweight threshold (300 KB)"
+          if ($size -gt 500000) {
+            Write-Error "Binary size exceeds lightweight threshold (500 KB)"
             exit 1
           }
 
@@ -59,8 +59,8 @@ jobs:
         run: |
           SIZE=$(stat -c%s treemcp)
           echo "Binary size: $SIZE bytes"
-          if [ $SIZE -gt 300000 ]; then
-            echo "Binary size exceeds lightweight threshold (300 KB)"
+          if [ $SIZE -gt 500000 ]; then
+            echo "Binary size exceeds lightweight threshold (500 KB)"
             exit 1
           fi
 

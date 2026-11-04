@@ -1,4 +1,10 @@
 #include "file_tree.h"
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
 #include <sstream>
 #include <iomanip>
 #include <queue>
@@ -16,6 +22,9 @@ void FileTree::clear() {
     ext_pool_.clear();
     ext_to_id_.clear();
     root_idx_ = INVALID_INDEX;
+    // Reserve upfront to eliminate reallocations on millions of items
+    nodes_.reserve(524288);
+    string_pool_.reserve(16777216);
     intern_ext(""); // 0 = no extension / directory
 }
 
@@ -29,6 +38,97 @@ uint16_t FileTree::intern_ext(const std::string& ext) {
     ext_to_id_[ext] = id;
     return id;
 }
+
+uint16_t FileTree::intern_ext_fast(const char* ext_data, size_t ext_len) {
+    if (ext_len == 0) return 0;
+    std::string ext(ext_data, ext_len);
+    auto it = ext_to_id_.find(ext);
+    if (it != ext_to_id_.end()) {
+        return it->second;
+    }
+    uint16_t id = static_cast<uint16_t>(ext_pool_.size());
+    ext_pool_.push_back(ext);
+    ext_to_id_[ext] = id;
+    return id;
+}
+
+#ifdef _WIN32
+uint32_t FileTree::add_node_w(const wchar_t* wname, uint64_t size, uint64_t allocated_size,
+                              uint32_t parent_idx, bool is_dir, uint32_t attributes) {
+    CompactNode node;
+    node.name_offset = static_cast<uint32_t>(string_pool_.size());
+
+    // Ultra-fast ASCII path: avoid WideCharToMultiByte kernel calls
+    const wchar_t* p = wname;
+    bool is_ascii = true;
+    while (*p) {
+        if (*p >= 128) { is_ascii = false; break; }
+        p++;
+    }
+
+    if (is_ascii) {
+        size_t len = p - wname;
+        node.name_len = static_cast<uint16_t>(len);
+        for (size_t i = 0; i < len; ++i) {
+            string_pool_.push_back(static_cast<char>(wname[i]));
+        }
+        string_pool_.push_back('\0');
+    } else {
+        int sz = WideCharToMultiByte(CP_UTF8, 0, wname, -1, NULL, 0, NULL, NULL);
+        if (sz > 0) {
+            size_t old_sz = string_pool_.size();
+            string_pool_.resize(old_sz + sz);
+            WideCharToMultiByte(CP_UTF8, 0, wname, -1, &string_pool_[old_sz], sz, NULL, NULL);
+            node.name_len = static_cast<uint16_t>(sz - 1);
+        } else {
+            node.name_len = 0;
+            string_pool_.push_back('\0');
+        }
+    }
+
+    node.size = size;
+    node.allocated_size = allocated_size;
+    node.parent_idx = parent_idx;
+    node.first_child = INVALID_INDEX;
+    node.next_sibling = INVALID_INDEX;
+    node.file_count = is_dir ? 0 : 1;
+    node.dir_count = is_dir ? 1 : 0;
+    node.attributes = static_cast<uint16_t>(attributes);
+    node.flags = is_dir ? 1 : 0;
+
+    if (!is_dir) {
+        const wchar_t* dot = nullptr;
+        const wchar_t* scan = wname;
+        while (*scan) {
+            if (*scan == L'.') dot = scan;
+            scan++;
+        }
+        if (dot && dot + 1 < scan && (scan - dot) < 16) {
+            char ext_buf[16];
+            size_t ext_len = scan - dot;
+            for (size_t i = 0; i < ext_len; ++i) {
+                wchar_t wc = dot[i];
+                ext_buf[i] = (wc < 128) ? static_cast<char>(tolower(static_cast<int>(wc))) : '?';
+            }
+            node.ext_id = intern_ext_fast(ext_buf, ext_len);
+        } else {
+            node.ext_id = 0;
+        }
+    } else {
+        node.ext_id = 0;
+    }
+
+    uint32_t new_idx = static_cast<uint32_t>(nodes_.size());
+    nodes_.push_back(node);
+
+    if (parent_idx != INVALID_INDEX && parent_idx < nodes_.size()) {
+        nodes_[new_idx].next_sibling = nodes_[parent_idx].first_child;
+        nodes_[parent_idx].first_child = new_idx;
+    }
+
+    return new_idx;
+}
+#endif
 
 uint32_t FileTree::add_node(const std::string& name, uint64_t size, uint64_t allocated_size,
                             uint32_t parent_idx, bool is_dir, uint32_t attributes) {
@@ -117,62 +217,31 @@ std::vector<uint32_t> FileTree::get_children(uint32_t parent_idx) const {
 }
 
 void FileTree::aggregate_sizes() {
-    // Process post-order (leaves to root) using topological order or reverse index if indexed bottom-up
-    // Since nodes are added parent-before-child or arbitrary, we do post-order DFS
     if (root_idx_ == INVALID_INDEX || nodes_.empty()) return;
 
-    std::vector<bool> visited(nodes_.size(), false);
-    std::vector<uint32_t> post_order;
-    post_order.reserve(nodes_.size());
-
-    std::stack<uint32_t> st;
-    st.push(root_idx_);
-
-    while (!st.empty()) {
-        uint32_t u = st.top();
-        if (visited[u]) {
-            st.pop();
-            post_order.push_back(u);
-            continue;
-        }
-        visited[u] = true;
-        uint32_t child = nodes_[u].first_child;
-        while (child != INVALID_INDEX && child < nodes_.size()) {
-            st.push(child);
-            child = nodes_[child].next_sibling;
-        }
-    }
-
-    for (uint32_t idx : post_order) {
-        auto& node = nodes_[idx];
-        if (node.is_directory()) {
-            uint64_t total_sz = 0;
-            uint64_t total_alloc = 0;
-            uint32_t f_count = 0;
-            uint32_t d_count = 0;
-
-            uint32_t child = node.first_child;
-            while (child != INVALID_INDEX && child < nodes_.size()) {
-                const auto& ch = nodes_[child];
-                total_sz += ch.size;
-                total_alloc += ch.allocated_size;
-                f_count += ch.file_count;
-                d_count += ch.dir_count;
-                child = ch.next_sibling;
+    // Linear bottom-up single-pass aggregation (parents always precede children in index order)
+    for (size_t i = nodes_.size(); i > 0; --i) {
+        size_t idx = i - 1;
+        uint32_t p = nodes_[idx].parent_idx;
+        if (p != INVALID_INDEX && p < nodes_.size()) {
+            nodes_[p].size += nodes_[idx].size;
+            nodes_[p].allocated_size += nodes_[idx].allocated_size;
+            nodes_[p].file_count += nodes_[idx].file_count;
+            if (nodes_[idx].is_directory()) {
+                nodes_[p].dir_count += (nodes_[idx].dir_count + 1);
             }
-            node.size = total_sz;
-            node.allocated_size = total_alloc;
-            node.file_count = f_count;
-            node.dir_count = d_count + 1;
         }
     }
 }
 
 void FileTree::sort_children_by_size() {
+    std::vector<uint32_t> ch;
+    ch.reserve(1024);
+
     for (size_t i = 0; i < nodes_.size(); ++i) {
         if (!nodes_[i].is_directory() || nodes_[i].first_child == INVALID_INDEX) continue;
 
-        std::vector<uint32_t> ch;
+        ch.clear();
         uint32_t curr = nodes_[i].first_child;
         while (curr != INVALID_INDEX && curr < nodes_.size()) {
             ch.push_back(curr);
