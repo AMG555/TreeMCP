@@ -3,79 +3,18 @@
 #include <vector>
 #include <chrono>
 
+#ifdef _WIN32
+#include <windows.h>
+#include <winioctl.h>
+
 namespace TreeMCP {
-
-// NTFS Record segment header
-#pragma pack(push, 1)
-struct MFT_RECORD_HEADER {
-    char signature[4];           // "FILE"
-    uint16_t update_seq_offset;  // Offset to update sequence array
-    uint16_t update_seq_size;    // Size of update sequence array
-    uint64_t lsn;                // $LogFile sequence number
-    uint16_t sequence_number;    // Sequence number
-    uint16_t hard_link_count;    // Hard link count
-    uint16_t attribute_offset;   // Offset to first attribute
-    uint16_t flags;              // 0x01 = In-use, 0x02 = Directory
-    uint32_t bytes_in_use;       // Real size of record
-    uint32_t bytes_allocated;    // Allocated size of record
-    uint64_t base_record_ref;    // Base file record reference
-    uint16_t next_attribute_id;  // Next attribute ID
-    uint16_t record_number_hi;   // XP+ MFT record number (hi)
-    uint32_t record_number;      // MFT record number (low)
-};
-
-struct ATTRIBUTE_HEADER {
-    uint32_t type;               // 0x10=$STANDARD_INFO, 0x30=$FILE_NAME, 0x80=$DATA
-    uint32_t length;             // Length of attribute
-    uint8_t non_resident;        // 0 = resident, 1 = non-resident
-    uint8_t name_length;         // Name length in chars
-    uint16_t name_offset;        // Name offset
-    uint16_t flags;              // Flags (compressed, encrypted)
-    uint16_t attribute_id;       // Attribute ID
-};
-
-struct RESIDENT_ATTRIBUTE {
-    ATTRIBUTE_HEADER header;
-    uint32_t value_length;
-    uint16_t value_offset;
-    uint8_t resident_flags;
-    uint8_t reserved;
-};
-
-struct NON_RESIDENT_ATTRIBUTE {
-    ATTRIBUTE_HEADER header;
-    uint64_t starting_vcn;
-    uint64_t ending_vcn;
-    uint16_t data_runs_offset;
-    uint16_t compression_unit_size;
-    uint32_t padding;
-    uint64_t allocated_size;
-    uint64_t real_size;
-    uint64_t initialized_size;
-};
-
-struct FILE_NAME_ATTR {
-    uint64_t parent_dir_ref;     // Lower 48 bits = record number, upper 16 = sequence
-    int64_t creation_time;
-    int64_t altered_time;
-    int64_t mft_altered_time;
-    int64_t read_time;
-    uint64_t allocated_size;
-    uint64_t real_size;
-    uint32_t flags;
-    uint32_t ea_reparse;
-    uint8_t file_name_length;
-    uint8_t file_name_type;      // 0=POSIX, 1=Win32, 2=DOS, 3=Win32 & DOS
-    wchar_t file_name[1];
-};
-#pragma pack(pop)
 
 MftReader::MftReader() {}
 
 MftReader::~MftReader() {
-    if (h_vol_ != INVALID_HANDLE_VALUE) {
-        CloseHandle(h_vol_);
-        h_vol_ = INVALID_HANDLE_VALUE;
+    if (h_vol_ != INVALID_HANDLE_VALUE && h_vol_ != (void*)-1) {
+        CloseHandle((HANDLE)h_vol_);
+        h_vol_ = (void*)-1;
     }
 }
 
@@ -91,16 +30,20 @@ bool MftReader::has_admin_privileges() {
     return is_admin != FALSE;
 }
 
-bool MftReader::scan_volume(const std::wstring& drive_letter, FileTree& tree, ScanStats& stats) {
+bool MftReader::scan_volume(const std::string& drive_path, FileTree& tree, ScanStats& stats) {
     if (!has_admin_privileges()) {
-        return false; // Requires elevation for direct MFT volume handles
+        return false;
     }
 
-    std::wstring vol_path = L"\\\\.\\" + drive_letter;
-    if (vol_path.back() == L'\\') vol_path.pop_back();
+    std::string vol = "\\\\.\\" + drive_path;
+    while (!vol.empty() && (vol.back() == '\\' || vol.back() == '/')) vol.pop_back();
 
-    h_vol_ = CreateFileW(
-        vol_path.c_str(),
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, vol.c_str(), -1, NULL, 0);
+    std::wstring wvol(wlen, 0);
+    MultiByteToWideChar(CP_UTF8, 0, vol.c_str(), -1, &wvol[0], wlen);
+
+    HANDLE h = CreateFileW(
+        wvol.c_str(),
         GENERIC_READ,
         FILE_SHARE_READ | FILE_SHARE_WRITE,
         NULL,
@@ -109,25 +52,42 @@ bool MftReader::scan_volume(const std::wstring& drive_letter, FileTree& tree, Sc
         NULL
     );
 
-    if (h_vol_ == INVALID_HANDLE_VALUE) {
+    if (h == INVALID_HANDLE_VALUE) {
         return false;
     }
 
     NTFS_VOLUME_DATA_BUFFER ntfs_data;
     DWORD bytes_returned = 0;
-    if (!DeviceIoControl(h_vol_, FSCTL_GET_NTFS_VOLUME_DATA, NULL, 0,
+    if (!DeviceIoControl(h, FSCTL_GET_NTFS_VOLUME_DATA, NULL, 0,
                          &ntfs_data, sizeof(ntfs_data), &bytes_returned, NULL)) {
-        CloseHandle(h_vol_);
-        h_vol_ = INVALID_HANDLE_VALUE;
+        CloseHandle(h);
         return false;
     }
 
-    // Direct MFT volume access verified
     stats.mft_used = true;
-    CloseHandle(h_vol_);
-    h_vol_ = INVALID_HANDLE_VALUE;
+    CloseHandle(h);
     return true;
 }
 
 } // namespace TreeMCP
 
+#else
+// Linux / POSIX Implementation
+#include <unistd.h>
+
+namespace TreeMCP {
+
+MftReader::MftReader() {}
+MftReader::~MftReader() {}
+
+bool MftReader::has_admin_privileges() {
+    return geteuid() == 0;
+}
+
+bool MftReader::scan_volume(const std::string& drive_path, FileTree& tree, ScanStats& stats) {
+    // Linux uses native kernel POSIX crawler (statx / getdents)
+    return false;
+}
+
+} // namespace TreeMCP
+#endif

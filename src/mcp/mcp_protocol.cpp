@@ -163,21 +163,21 @@ std::string McpProtocol::handle_tools_call(const std::string& id, const std::str
     }
     else if (tool_name == "treemcp_scan") {
         std::string path_str = parse_json_field(args_json, "path");
-        if (path_str.empty()) path_str = "C:\\";
-
-        // Convert path to wide
-        int wlen = MultiByteToWideChar(CP_UTF8, 0, path_str.c_str(), -1, NULL, 0);
-        std::wstring wpath(wlen, 0);
-        MultiByteToWideChar(CP_UTF8, 0, path_str.c_str(), -1, &wpath[0], wlen);
-        if (!wpath.empty() && wpath.back() == L'\0') wpath.pop_back();
+        if (path_str.empty()) {
+#ifdef _WIN32
+            path_str = "C:\\";
+#else
+            path_str = "/";
+#endif
+        }
 
         // Security check
-        if (!Security::is_path_safe_to_read(wpath)) {
+        if (!Security::is_path_safe_to_read(path_str)) {
             return make_json_rpc_error(id, -32602, "Security check failed: Path contains invalid or reserved device names.");
         }
 
         ScanStats stats;
-        bool ok = scanner_.scan(wpath, tree_, stats);
+        bool ok = scanner_.scan(path_str, tree_, stats);
         if (ok) {
             std::stringstream ss;
             ss << "SCAN COMPLETE: " << path_str << " in " << std::fixed << std::setprecision(2)
@@ -249,23 +249,18 @@ std::string McpProtocol::handle_tools_call(const std::string& id, const std::str
             return make_json_rpc_error(id, -32602, "Path is required for treemcp_clean.");
         }
 
-        int wlen = MultiByteToWideChar(CP_UTF8, 0, path_str.c_str(), -1, NULL, 0);
-        std::wstring wpath(wlen, 0);
-        MultiByteToWideChar(CP_UTF8, 0, path_str.c_str(), -1, &wpath[0], wlen);
-        if (!wpath.empty() && wpath.back() == L'\0') wpath.pop_back();
-
-        // 1. Critical security check: Protected Windows system directory check
-        if (Security::is_protected_system_path(wpath)) {
-            text_result = "[BLOCKED BY SECURITY POLICY] Path '" + path_str + "' is a protected system directory or root drive. Deletion denied.";
+        // 1. Critical security check: Protected system directory check
+        if (Security::is_protected_system_path(path_str)) {
+            text_result = "[BLOCKED BY SECURITY POLICY] Path '" + path_str + "' is a protected system directory or root filesystem. Deletion denied.";
             standard_tokens = 30;
         } else if (dry_run) {
-            text_result = "[DRY RUN SAFE PREVIEW] Would move to Windows Recycle Bin: " + path_str + ". Pass dry_run=false to execute.";
+            text_result = "[DRY RUN SAFE PREVIEW] Would move to Recycle Bin / Trash: " + path_str + ". Pass dry_run=false to execute.";
             standard_tokens = 30;
         } else {
-            // Safe deletion via Windows Recycle Bin (non-destructive)
-            auto del_res = Security::safe_recycle_item(wpath);
+            // Safe deletion via Windows Recycle Bin / Linux Trash (non-destructive)
+            auto del_res = Security::safe_recycle_item(path_str);
             if (del_res.success) {
-                text_result = "[SUCCESS] Safely moved to Windows Recycle Bin: " + path_str;
+                text_result = "[SUCCESS] Safely moved to Recycle Bin / Trash: " + path_str;
             } else {
                 text_result = "[FAILED] Could not recycle item: " + del_res.error_message;
             }

@@ -1,8 +1,24 @@
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <shellapi.h>
+using socket_t = SOCKET;
+#define CLOSE_SOCKET closesocket
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "advapi32.lib")
+#pragma comment(lib, "shell32.lib")
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+using socket_t = int;
+#define INVALID_SOCKET (-1)
+#define SOCKET_ERROR (-1)
+#define CLOSE_SOCKET close
+#endif
 
 #include <iostream>
 #include <fstream>
@@ -21,10 +37,6 @@
 #include "mcp/mcp_protocol.h"
 #include "mcp/token_optimizer.h"
 
-#pragma comment(lib, "ws2_32.lib")
-#pragma comment(lib, "advapi32.lib")
-#pragma comment(lib, "shell32.lib")
-
 using namespace TreeMCP;
 
 static FileTree g_tree;
@@ -33,26 +45,6 @@ static std::unique_ptr<McpProtocol> g_mcp;
 static std::atomic<bool> g_server_running{true};
 static std::string g_session_token;
 static int g_port = 4242;
-
-// Convert string to wide string
-std::wstring to_wide(const std::string& str) {
-    if (str.empty()) return L"";
-    int sz = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, NULL, 0);
-    std::wstring w(sz, 0);
-    MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &w[0], sz);
-    if (!w.empty() && w.back() == L'\0') w.pop_back();
-    return w;
-}
-
-// Convert wide string to string
-std::string to_utf8(const std::wstring& wstr) {
-    if (wstr.empty()) return "";
-    int sz = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, NULL, 0, NULL, NULL);
-    std::string s(sz, 0);
-    WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &s[0], sz, NULL, NULL);
-    if (!s.empty() && s.back() == '\0') s.pop_back();
-    return s;
-}
 
 // Read local static file
 std::string read_static_file(const std::string& rel_path) {
@@ -113,9 +105,14 @@ std::string serialize_drives(const std::vector<DriveInfo>& drives) {
     for (size_t i = 0; i < drives.size(); ++i) {
         if (i > 0) ss << ",";
         const auto& d = drives[i];
-        ss << "{\"path\":\"" << to_utf8(d.path) << "\""
-           << ",\"volume_name\":\"" << to_utf8(d.volume_name) << "\""
-           << ",\"file_system\":\"" << to_utf8(d.file_system) << "\""
+        
+        std::string esc_path, esc_vol;
+        for (char c : d.path) { if (c == '\\' || c == '"') esc_path += '\\'; esc_path += c; }
+        for (char c : d.volume_name) { if (c == '\\' || c == '"') esc_vol += '\\'; esc_vol += c; }
+
+        ss << "{\"path\":\"" << esc_path << "\""
+           << ",\"volume_name\":\"" << esc_vol << "\""
+           << ",\"file_system\":\"" << d.file_system << "\""
            << ",\"total_bytes\":" << d.total_bytes
            << ",\"free_bytes\":" << d.free_bytes
            << ",\"is_ntfs\":" << (d.is_ntfs ? "true" : "false")
@@ -170,7 +167,7 @@ std::string get_http_header(const std::string& req, const std::string& header_na
             return "";
         }
     } else {
-        pos += 2; // skip \r\n
+        pos += 2;
     }
 
     pos += header_name.size() + 1;
@@ -197,18 +194,17 @@ std::string get_query_param(const std::string& uri, const std::string& param_nam
     return query.substr(p, end - p);
 }
 
-// HTTP Connection Handler with Full Security Hardening
-void handle_http_client(SOCKET client_sock) {
-    char buf[65536]; // Max 64 KB per request
+// HTTP Connection Handler
+void handle_http_client(socket_t client_sock) {
+    char buf[65536];
     int bytes_read = recv(client_sock, buf, sizeof(buf) - 1, 0);
     if (bytes_read <= 0) {
-        closesocket(client_sock);
+        CLOSE_SOCKET(client_sock);
         return;
     }
     buf[bytes_read] = '\0';
     std::string req(buf, bytes_read);
 
-    // Parse method and path
     std::string method, uri;
     std::istringstream req_stream(req);
     req_stream >> method >> uri;
@@ -218,7 +214,7 @@ void handle_http_client(SOCKET client_sock) {
     int status_code = 200;
     std::string status_text = "OK";
 
-    // 1. Host Header Validation (Anti-DNS Rebinding)
+    // Host Header Validation (Anti-DNS Rebinding)
     std::string host_header = get_http_header(req, "Host");
     if (!Security::is_valid_host_header(host_header, g_port)) {
         status_code = 403;
@@ -226,7 +222,7 @@ void handle_http_client(SOCKET client_sock) {
         body = "{\"error\":\"Forbidden: Invalid Host header (Anti-DNS Rebinding Guard)\"}";
         content_type = "application/json";
     }
-    // 2. Authentication Check for API and MCP endpoints (Anti-CSRF / Anti-Web-Probing)
+    // Authentication Check for API and MCP endpoints (Anti-CSRF)
     else if (uri.find("/api/") == 0 || uri.find("/mcp") == 0) {
         std::string token_hdr = get_http_header(req, "X-TreeMCP-Token");
         std::string token_param = get_query_param(uri, "token");
@@ -241,7 +237,6 @@ void handle_http_client(SOCKET client_sock) {
     }
 
     if (status_code == 200) {
-        // Strip query string for path routing
         std::string clean_uri = uri;
         size_t qmark = clean_uri.find('?');
         if (qmark != std::string::npos) {
@@ -267,7 +262,13 @@ void handle_http_client(SOCKET client_sock) {
         } else if (clean_uri.find("/api/scan") == 0) {
             content_type = "application/json";
             std::string path_param = get_query_param(uri, "path");
-            if (path_param.empty()) path_param = "C:\\";
+            if (path_param.empty()) {
+#ifdef _WIN32
+                path_param = "C:\\";
+#else
+                path_param = "/";
+#endif
+            }
 
             // Basic URL decode
             std::string decoded;
@@ -285,14 +286,13 @@ void handle_http_client(SOCKET client_sock) {
             }
             path_param = decoded;
 
-            std::wstring wpath = to_wide(path_param);
-            if (!Security::is_path_safe_to_read(wpath)) {
+            if (!Security::is_path_safe_to_read(path_param)) {
                 status_code = 400;
                 status_text = "Bad Request";
                 body = "{\"error\":\"Path rejected by security policy.\"}";
             } else {
                 ScanStats stats;
-                g_scanner.scan(wpath, g_tree, stats);
+                g_scanner.scan(path_param, g_tree, stats);
 
                 auto tiles = TreemapEngine::compute_layout(g_tree, g_tree.root_idx(), 0, 0, 1000, 600, 2, 500 * 1024);
                 auto exts = g_tree.get_extension_stats(g_tree.root_idx(), 15);
@@ -331,9 +331,16 @@ void handle_http_client(SOCKET client_sock) {
         } else if (clean_uri.find("/api/open-explorer") == 0) {
             content_type = "application/json";
             std::string p = get_query_param(uri, "path");
-            std::wstring wp = to_wide(p);
-            if (Security::is_path_safe_to_read(wp)) {
+            if (Security::is_path_safe_to_read(p)) {
+#ifdef _WIN32
+                int wlen = MultiByteToWideChar(CP_UTF8, 0, p.c_str(), -1, NULL, 0);
+                std::wstring wp(wlen, 0);
+                MultiByteToWideChar(CP_UTF8, 0, p.c_str(), -1, &wp[0], wlen);
                 ShellExecuteW(NULL, L"explore", wp.c_str(), NULL, NULL, SW_SHOWNORMAL);
+#else
+                std::string cmd = "xdg-open \"" + p + "\" >/dev/null 2>&1 &";
+                system(cmd.c_str());
+#endif
                 body = "{\"ok\":true}";
             } else {
                 body = "{\"error\":\"Path rejected by security policy.\"}";
@@ -350,7 +357,6 @@ void handle_http_client(SOCKET client_sock) {
         }
     }
 
-    // Build HTTP Response with Security Headers
     std::stringstream resp;
     resp << "HTTP/1.1 " << status_code << " " << status_text << "\r\n"
          << "Content-Type: " << content_type << "\r\n"
@@ -364,50 +370,54 @@ void handle_http_client(SOCKET client_sock) {
 
     std::string resp_str = resp.str();
     send(client_sock, resp_str.c_str(), (int)resp_str.size(), 0);
-    closesocket(client_sock);
+    CLOSE_SOCKET(client_sock);
 }
 
 void run_web_server(int port) {
+#ifdef _WIN32
     WSADATA wsa;
     WSAStartup(MAKEWORD(2, 2), &wsa);
+#endif
 
-    SOCKET server_sock = socket(AF_INET, SOCK_STREAM, 0);
+    socket_t server_sock = socket(AF_INET, SOCK_STREAM, 0);
     int opt = 1;
     setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
 
     sockaddr_in server_addr{};
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK); // Strict 127.0.0.1 bind
+    server_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     server_addr.sin_port = htons(port);
 
     if (bind(server_sock, (sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
         std::cerr << "Failed to bind to port " << port << std::endl;
-        closesocket(server_sock);
+        CLOSE_SOCKET(server_sock);
+#ifdef _WIN32
         WSACleanup();
+#endif
         return;
     }
 
     listen(server_sock, 10);
-    std::cout << "[TreeMCP Secure Server] Listening on http://127.0.0.1:" << port << std::endl;
-    std::cout << "[Security Policy] Anti-DNS Rebinding: ACTIVE | Anti-CSRF Session Token: ACTIVE\n";
-    std::cout << "[Recycle Bin Policy] Non-destructive safe delete: ACTIVE | System Paths: PROTECTED\n";
+    std::cout << "[TreeMCP Server] Listening on http://127.0.0.1:" << port << std::endl;
+    std::cout << "[Security Policy] Anti-DNS Rebinding: ACTIVE | Session Token Auth: ACTIVE\n";
 
     while (g_server_running) {
-        SOCKET client_sock = accept(server_sock, NULL, NULL);
+        socket_t client_sock = accept(server_sock, NULL, NULL);
         if (client_sock == INVALID_SOCKET) break;
         std::thread(handle_http_client, client_sock).detach();
     }
 
-    closesocket(server_sock);
+    CLOSE_SOCKET(server_sock);
+#ifdef _WIN32
     WSACleanup();
+#endif
 }
 
 int main(int argc, char* argv[]) {
-    // Generate high-entropy 256-bit cryptographically secure session token
     g_session_token = Security::generate_secure_token();
     g_mcp = std::make_unique<McpProtocol>(g_tree, g_scanner);
 
-    // Mode 1: MCP Stdio Server (for Claude / Antigravity / Cursor)
+    // Mode 1: MCP Stdio Server
     if (argc >= 2 && std::string(argv[1]) == "--mcp") {
         g_mcp->run_stdio_server();
         return 0;
@@ -416,15 +426,14 @@ int main(int argc, char* argv[]) {
     // Mode 2: Quick CLI Scan
     if (argc >= 3 && std::string(argv[1]) == "--scan") {
         std::string path = argv[2];
-        std::wstring wpath = to_wide(path);
-        if (!Security::is_path_safe_to_read(wpath)) {
+        if (!Security::is_path_safe_to_read(path)) {
             std::cerr << "[SECURITY REJECTED] Unsafe path: " << path << std::endl;
             return 1;
         }
 
         ScanStats stats;
         std::cout << "Scanning " << path << "..." << std::endl;
-        g_scanner.scan(wpath, g_tree, stats);
+        g_scanner.scan(path, g_tree, stats);
         std::cout << "Scan finished in " << (stats.duration_ms / 1000.0) << "s!\n";
         std::cout << "Files: " << stats.total_files << " | Folders: " << stats.total_dirs
                   << " | Size: " << FileTree::format_size(stats.total_bytes) << "\n\n";
@@ -443,23 +452,28 @@ int main(int argc, char* argv[]) {
     g_port = port;
 
     std::cout << "=====================================================\n";
-    std::cout << "  TreeMCP - Hardened WizTree Replica & MCP Server\n";
+    std::cout << "  TreeMCP - Cross-Platform WizTree Replica & MCP\n";
     std::cout << "=====================================================\n";
     std::cout << "  * Local MCP Server: Active on stdio & http://127.0.0.1:" << port << "/mcp\n";
     std::cout << "  * Session Token:    " << g_session_token.substr(0, 8) << "... [REDACTED 256-bit]\n";
     std::cout << "  * Desktop UI:       http://127.0.0.1:" << port << "/?token=" << g_session_token << "\n";
     std::cout << "=====================================================\n\n";
 
-    // Launch UI in Edge App mode (isolated app window with session token)
+    // Launch UI
     std::thread([port]() {
-        Sleep(600); // Give server time to bind
-        std::string edge_path = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
+        std::this_thread::sleep_for(std::chrono::milliseconds(600));
         std::string target_url = "http://127.0.0.1:" + std::to_string(port) + "/?token=" + g_session_token;
+#ifdef _WIN32
+        std::string edge_path = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
         std::string cmd = "\"" + edge_path + "\" --app=\"" + target_url + "\" --window-size=1280,820";
         STARTUPINFOA si{};
         PROCESS_INFORMATION pi{};
         si.cb = sizeof(si);
         CreateProcessA(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+#else
+        std::string cmd = "xdg-open \"" + target_url + "\" >/dev/null 2>&1 &";
+        system(cmd.c_str());
+#endif
     }).detach();
 
     run_web_server(port);

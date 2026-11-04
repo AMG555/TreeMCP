@@ -1,8 +1,6 @@
 #pragma once
 
 #include "file_tree.h"
-#include <windows.h>
-#include <winioctl.h>
 #include <string>
 
 namespace TreeMCP {
@@ -12,15 +10,16 @@ public:
     MftReader();
     ~MftReader();
 
-    // Check if process has administrative privileges to open raw volumes
+    // Check if process has administrative / root privileges
     static bool has_admin_privileges();
 
-    // Attempt direct MFT scan on drive (e.g. L"C:")
-    bool scan_volume(const std::wstring& drive_letter, FileTree& tree, ScanStats& stats);
+    // Attempt direct MFT scan on drive (Windows only)
+    bool scan_volume(const std::string& drive_path, FileTree& tree, ScanStats& stats);
 
 private:
-    HANDLE h_vol_ = INVALID_HANDLE_VALUE;
+#ifdef _WIN32
+    void* h_vol_ = (void*)-1;
+#endif
 };
 
 } // namespace TreeMCP
-

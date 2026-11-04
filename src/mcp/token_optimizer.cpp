@@ -13,9 +13,10 @@ std::string TokenOptimizer::format_drives(const std::vector<DriveInfo>& drives) 
         double used_gb = static_cast<double>(d.total_bytes - d.free_bytes) / (1ULL << 30);
         int pct = (d.total_bytes > 0) ? static_cast<int>((d.total_bytes - d.free_bytes) * 100 / d.total_bytes) : 0;
 
-        char drive_ltr = (d.path.size() >= 2) ? static_cast<char>(d.path[0]) : '?';
-        ss << " [" << drive_ltr << ": " << std::fixed << std::setprecision(1) << used_gb << "/"
-           << total_gb << "GB (" << pct << "%) " << (d.is_ntfs ? "NTFS" : "FAT") << "]";
+        std::string label = d.path;
+        if (label.size() > 2 && (label.back() == '\\' || label.back() == '/')) label.pop_back();
+        ss << " [" << label << " " << std::fixed << std::setprecision(1) << used_gb << "/"
+           << total_gb << "GB (" << pct << "%) " << (d.file_system.empty() ? (d.is_ntfs ? "NTFS" : "ext4") : d.file_system) << "]";
     }
     return ss.str();
 }
