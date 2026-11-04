@@ -4,6 +4,7 @@
 #include <sstream>
 #include <iomanip>
 #include <fstream>
+#include <vector>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -13,13 +14,24 @@
 
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "shell32.lib")
+#else
+#include <unistd.h>
+#include <limits.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#endif
 
 namespace TreeMCP {
 
+// =========================================================================
+// 1. CRYPTOGRAPHIC RANDOM TOKEN GENERATION
+// =========================================================================
+
 std::string Security::generate_secure_token() {
-    HCRYPTPROV h_prov = 0;
     unsigned char random_bytes[32] = {0};
 
+#ifdef _WIN32
+    HCRYPTPROV h_prov = 0;
     if (CryptAcquireContextW(&h_prov, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)) {
         CryptGenRandom(h_prov, sizeof(random_bytes), random_bytes);
         CryptReleaseContext(h_prov, 0);
@@ -32,6 +44,12 @@ std::string Security::generate_secure_token() {
             random_bytes[i] = static_cast<unsigned char>(seed >> 32);
         }
     }
+#else
+    std::ifstream urandom("/dev/urandom", std::ios::binary);
+    if (urandom.is_open()) {
+        urandom.read(reinterpret_cast<char*>(random_bytes), sizeof(random_bytes));
+    }
+#endif
 
     std::stringstream ss;
     for (size_t i = 0; i < sizeof(random_bytes); ++i) {
@@ -40,24 +58,66 @@ std::string Security::generate_secure_token() {
     return ss.str();
 }
 
-std::string Security::canonicalize_path(const std::string& path) {
-    if (path.empty()) return "";
-    int wlen = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, NULL, 0);
-    std::wstring wpath(wlen, 0);
-    MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, &wpath[0], wlen);
+// =========================================================================
+// 2. PATH CANONICALIZATION (UNIVERSAL SEGMENT COLLAPSE)
+// =========================================================================
 
-    wchar_t full_buf[MAX_PATH * 2] = {0};
-    DWORD len = GetFullPathNameW(wpath.c_str(), sizeof(full_buf) / sizeof(wchar_t), full_buf, NULL);
-    if (len == 0 || len >= sizeof(full_buf) / sizeof(wchar_t)) {
-        return path;
+std::string Security::canonicalize_path(const std::string& raw_path) {
+    if (raw_path.empty()) return "";
+
+    char sep = (raw_path.find('\\') != std::string::npos) ? '\\' : '/';
+    std::string prefix;
+    std::string rest = raw_path;
+
+    if (rest.size() >= 2 && rest[1] == ':') {
+        prefix = rest.substr(0, 2);
+        rest = rest.substr(2);
+        if (!rest.empty() && (rest[0] == '/' || rest[0] == '\\')) {
+            prefix += sep;
+            rest = rest.substr(1);
+        }
+    } else if (!rest.empty() && (rest[0] == '/' || rest[0] == '\\')) {
+        prefix = std::string(1, sep);
+        rest = rest.substr(1);
     }
 
-    int sz = WideCharToMultiByte(CP_UTF8, 0, full_buf, -1, NULL, 0, NULL, NULL);
-    std::string s(sz, 0);
-    WideCharToMultiByte(CP_UTF8, 0, full_buf, -1, &s[0], sz, NULL, NULL);
-    if (!s.empty() && s.back() == '\0') s.pop_back();
-    return s;
+    std::vector<std::string> segments;
+    std::string token;
+    for (size_t i = 0; i <= rest.size(); ++i) {
+        char c = (i < rest.size()) ? rest[i] : sep;
+        if (c == '/' || c == '\\') {
+            if (!token.empty()) {
+                if (token == ".") {
+                    // ignore current directory marker
+                } else if (token == "..") {
+                    if (!segments.empty() && segments.back() != "..") {
+                        segments.pop_back();
+                    } else if (prefix.empty()) {
+                        segments.push_back("..");
+                    }
+                } else {
+                    segments.push_back(token);
+                }
+                token.clear();
+            }
+        } else {
+            token += c;
+        }
+    }
+
+    std::string result = prefix;
+    for (size_t i = 0; i < segments.size(); ++i) {
+        if (!result.empty() && result.back() != sep) {
+            result += sep;
+        }
+        result += segments[i];
+    }
+    return result.empty() ? std::string(1, sep) : result;
 }
+
+// =========================================================================
+// 3. SAFE PATH VALIDATION (TRAVERSAL, DOS DEVICES, AND CONTROL CHARS)
+// =========================================================================
 
 bool Security::is_path_safe_to_read(const std::string& path) {
     if (path.empty()) return false;
@@ -65,13 +125,20 @@ bool Security::is_path_safe_to_read(const std::string& path) {
     std::string p = path;
     for (char& c : p) c = static_cast<char>(tolower(c));
 
-    // Reject path traversal attacks
+    // 1. Reject path traversal sequences
     if (p.find("..\\") != std::string::npos || p.find("../") != std::string::npos ||
         p.find("\\..") != std::string::npos || p.find("/..") != std::string::npos ||
         p == ".." || p.find("...") != std::string::npos) {
         return false;
     }
 
+    // 2. Reject dangerous Unix hardware device memory targets
+    if (p.find("/dev/mem") != std::string::npos || p.find("/dev/kmem") != std::string::npos ||
+        p.find("/dev/port") != std::string::npos) {
+        return false;
+    }
+
+    // 3. Reject Windows raw volume namespaces unless safe drive accessor
     if (p.find("\\\\.\\") == 0 || p.find("\\\\?\\") == 0) {
         if (p.size() >= 6 && p.substr(0, 4) == "\\\\.\\" && isalpha(p[4]) && p[5] == ':') {
             return true;
@@ -79,10 +146,11 @@ bool Security::is_path_safe_to_read(const std::string& path) {
         return false;
     }
 
+    // 4. Reject reserved Windows DOS device names
     std::vector<std::string> bad_devices = {
         "con", "prn", "aux", "nul",
-        "com1", "com2", "com3", "com4",
-        "lpt1", "lpt2", "lpt3", "lpt4"
+        "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9",
+        "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9"
     };
 
     for (const auto& dev : bad_devices) {
@@ -99,8 +167,14 @@ bool Security::is_path_safe_to_read(const std::string& path) {
     return true;
 }
 
+// =========================================================================
+// 4. PROTECTED OS PATH BLACKLIST
+// =========================================================================
+
 bool Security::is_protected_system_path(const std::string& raw_path) {
-    // Unix-style system paths check
+    if (raw_path.empty()) return true;
+
+    // 1. Unix-style system paths
     std::string norm = raw_path;
     for (char& c : norm) { if (c == '\\') c = '/'; c = static_cast<char>(tolower(c)); }
     while (norm.size() > 1 && norm.back() == '/') norm.pop_back();
@@ -120,24 +194,63 @@ bool Security::is_protected_system_path(const std::string& raw_path) {
         return true;
     }
 
-    std::string path = canonicalize_path(raw_path);
-    if (path.empty()) return true;
+    // 2. Windows drive roots and system directories
+    std::string win_p = raw_path;
+    for (char& c : win_p) { if (c == '/') c = '\\'; c = static_cast<char>(tolower(c)); }
+    while (win_p.size() > 3 && win_p.back() == '\\') win_p.pop_back();
 
-    for (char& c : path) {
-        if (c == '/') c = '\\';
-        c = static_cast<char>(tolower(c));
-    }
-
-    while (path.size() > 3 && path.back() == '\\') {
-        path.pop_back();
-    }
-
-    // 1. Root drives (e.g. C: or C:\)
-    if (path.size() <= 3 && path.size() >= 2 && path[1] == ':') {
+    if (win_p.size() <= 3 && win_p.size() >= 2 && win_p[1] == ':') {
         return true;
     }
 
-    // 2. Windows system paths
+    std::vector<std::string> protected_win_patterns = {
+        "\\windows", "\\system32", "\\syswow64", "\\program files",
+        "\\program files (x86)", "\\programdata\\microsoft",
+        "\\system volume information", "\\$recycle.bin", "\\recovery",
+        "\\boot", "\\pagefile.sys", "\\swapfile.sys", "\\hiberfil.sys"
+    };
+
+    for (const auto& pat : protected_win_patterns) {
+        if (win_p.find(pat) != std::string::npos) {
+            if (win_p.size() >= 2 && win_p[1] == ':') {
+                std::string rel = win_p.substr(2);
+                if (rel == pat || rel.find(pat + "\\") == 0) return true;
+            } else if (win_p == pat || win_p.find(pat + "\\") == 0) {
+                return true;
+            }
+        }
+    }
+
+    // Also evaluate canonicalized variant
+    std::string canon = canonicalize_path(raw_path);
+    if (!canon.empty() && canon != raw_path) {
+        std::string c_norm = canon;
+        for (char& c : c_norm) { if (c == '\\') c = '/'; c = static_cast<char>(tolower(c)); }
+        while (c_norm.size() > 1 && c_norm.back() == '/') c_norm.pop_back();
+
+        if (c_norm == "/" || c_norm == "/etc" || c_norm == "/bin" || c_norm == "/boot" ||
+            c_norm == "/proc" || c_norm == "/sys" || c_norm == "/usr" || c_norm == "/sbin") {
+            return true;
+        }
+
+        std::string c_win = canon;
+        for (char& c : c_win) { if (c == '/') c = '\\'; c = static_cast<char>(tolower(c)); }
+        while (c_win.size() > 3 && c_win.back() == '\\') c_win.pop_back();
+
+        if (c_win.size() <= 3 && c_win.size() >= 2 && c_win[1] == ':') return true;
+        for (const auto& pat : protected_win_patterns) {
+            if (c_win.find(pat) != std::string::npos) {
+                if (c_win.size() >= 2 && c_win[1] == ':') {
+                    std::string rel = c_win.substr(2);
+                    if (rel == pat || rel.find(pat + "\\") == 0) return true;
+                } else if (c_win == pat || c_win.find(pat + "\\") == 0) {
+                    return true;
+                }
+            }
+        }
+    }
+
+#ifdef _WIN32
     wchar_t win_dir[MAX_PATH] = {0};
     if (GetWindowsDirectoryW(win_dir, MAX_PATH)) {
         int sz = WideCharToMultiByte(CP_UTF8, 0, win_dir, -1, NULL, 0, NULL, NULL);
@@ -145,32 +258,9 @@ bool Security::is_protected_system_path(const std::string& raw_path) {
         WideCharToMultiByte(CP_UTF8, 0, win_dir, -1, &s_win[0], sz, NULL, NULL);
         if (!s_win.empty() && s_win.back() == '\0') s_win.pop_back();
         for (char& c : s_win) { if (c == '/') c = '\\'; c = static_cast<char>(tolower(c)); }
-
-        if (path == s_win || path.find(s_win + "\\") == 0) {
-            return true;
-        }
+        if (win_p == s_win || win_p.find(s_win + "\\") == 0) return true;
     }
 
-    // 3. System directories
-    std::vector<std::string> protected_patterns = {
-        "\\windows", "\\system32", "\\syswow64", "\\program files",
-        "\\program files (x86)", "\\programdata\\microsoft",
-        "\\system volume information", "\\$recycle.bin", "\\recovery",
-        "\\boot", "\\pagefile.sys", "\\swapfile.sys", "\\hiberfil.sys"
-    };
-
-    for (const auto& pat : protected_patterns) {
-        if (path.find(pat) != std::string::npos) {
-            if (path.size() >= 2 && path[1] == ':') {
-                std::string relative_from_drive = path.substr(2);
-                if (relative_from_drive == pat || relative_from_drive.find(pat + "\\") == 0) {
-                    return true;
-                }
-            }
-        }
-    }
-
-    // 4. User profile root
     wchar_t user_prof[MAX_PATH] = {0};
     if (GetEnvironmentVariableW(L"USERPROFILE", user_prof, MAX_PATH)) {
         int sz = WideCharToMultiByte(CP_UTF8, 0, user_prof, -1, NULL, 0, NULL, NULL);
@@ -178,25 +268,39 @@ bool Security::is_protected_system_path(const std::string& raw_path) {
         WideCharToMultiByte(CP_UTF8, 0, user_prof, -1, &s_prof[0], sz, NULL, NULL);
         if (!s_prof.empty() && s_prof.back() == '\0') s_prof.pop_back();
         for (char& c : s_prof) { if (c == '/') c = '\\'; c = static_cast<char>(tolower(c)); }
-        if (path == s_prof) return true;
+        if (win_p == s_prof) return true;
     }
+#else
+    const char* home = getenv("HOME");
+    if (home && norm == home) return true;
+#endif
 
     return false;
 }
+
+// =========================================================================
+// 5. NON-DESTRUCTIVE SAFE RECYCLE (WINDOWS RECYCLE BIN / LINUX TRASH)
+// =========================================================================
 
 Security::DeleteResult Security::safe_recycle_item(const std::string& raw_path) {
     DeleteResult res;
     res.success = false;
     res.was_protected = false;
 
-    std::string path = canonicalize_path(raw_path);
+    if (is_protected_system_path(raw_path)) {
+        res.was_protected = true;
+        res.error_message = "Path is protected by system security policy and cannot be deleted.";
+        return res;
+    }
 
+    std::string path = canonicalize_path(raw_path);
     if (is_protected_system_path(path)) {
         res.was_protected = true;
         res.error_message = "Path is protected by system security policy and cannot be deleted.";
         return res;
     }
 
+#ifdef _WIN32
     int wlen = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, NULL, 0);
     std::vector<wchar_t> double_null_path(wlen + 2, 0);
     MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, double_null_path.data(), wlen);
@@ -215,99 +319,7 @@ Security::DeleteResult Security::safe_recycle_item(const std::string& raw_path) 
     } else {
         res.error_message = "Windows Shell error code: " + std::to_string(ret);
     }
-
-    return res;
-}
-
-} // namespace TreeMCP
-
 #else
-// Linux / POSIX Implementation
-#include <unistd.h>
-#include <limits.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-
-namespace TreeMCP {
-
-std::string Security::generate_secure_token() {
-    unsigned char random_bytes[32] = {0};
-    std::ifstream urandom("/dev/urandom", std::ios::binary);
-    if (urandom.is_open()) {
-        urandom.read(reinterpret_cast<char*>(random_bytes), sizeof(random_bytes));
-    }
-
-    std::stringstream ss;
-    for (size_t i = 0; i < sizeof(random_bytes); ++i) {
-        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(random_bytes[i]);
-    }
-    return ss.str();
-}
-
-std::string Security::canonicalize_path(const std::string& path) {
-    if (path.empty()) return "";
-    char resolved[PATH_MAX] = {0};
-    if (realpath(path.c_str(), resolved)) {
-        return std::string(resolved);
-    }
-    return path;
-}
-
-bool Security::is_path_safe_to_read(const std::string& path) {
-    if (path.empty()) return false;
-    // Disallow dangerous relative path traversal to /dev or /proc sensitive files
-    if (path.find("/dev/mem") != std::string::npos || path.find("/dev/kmem") != std::string::npos) {
-        return false;
-    }
-    return true;
-}
-
-bool Security::is_protected_system_path(const std::string& raw_path) {
-    std::string path = canonicalize_path(raw_path);
-    if (path.empty()) return true;
-
-    while (path.size() > 1 && path.back() == '/') {
-        path.pop_back();
-    }
-
-    // Never allow wiping root or essential Linux system directories
-    if (path == "/" ||
-        path == "/bin" || path.find("/bin/") == 0 ||
-        path == "/boot" || path.find("/boot/") == 0 ||
-        path == "/dev" || path.find("/dev/") == 0 ||
-        path == "/etc" || path.find("/etc/") == 0 ||
-        path == "/lib" || path.find("/lib/") == 0 ||
-        path == "/lib64" || path.find("/lib64/") == 0 ||
-        path == "/proc" || path.find("/proc/") == 0 ||
-        path == "/root" || path == "/sys" || path.find("/sys/") == 0 ||
-        path == "/usr" || path.find("/usr/") == 0 ||
-        path == "/sbin" || path.find("/sbin/") == 0 ||
-        path == "/home") {
-        return true;
-    }
-
-    const char* home = getenv("HOME");
-    if (home && path == home) {
-        // Protect entire user home directory from root deletion
-        return true;
-    }
-
-    return false;
-}
-
-Security::DeleteResult Security::safe_recycle_item(const std::string& raw_path) {
-    DeleteResult res;
-    res.success = false;
-    res.was_protected = false;
-
-    std::string path = canonicalize_path(raw_path);
-
-    if (is_protected_system_path(path)) {
-        res.was_protected = true;
-        res.error_message = "Path is protected by system security policy and cannot be deleted.";
-        return res;
-    }
-
     // FreeDesktop.org Trash Specification
     const char* home = getenv("HOME");
     std::string trash_dir = home ? (std::string(home) + "/.local/share/Trash") : "/tmp/treemcp_trash";
@@ -324,14 +336,14 @@ Security::DeleteResult Security::safe_recycle_item(const std::string& raw_path) 
     } else {
         res.error_message = "Failed to move item to trash directory.";
     }
+#endif
 
     return res;
 }
 
-} // namespace TreeMCP
-#endif
-
-namespace TreeMCP {
+// =========================================================================
+// 6. SHARED UTILITIES (CONSTANT TIME COMPARE, HOST VALIDATION, CHAR CHECKS)
+// =========================================================================
 
 bool Security::constant_time_compare(const std::string& a, const std::string& b) {
     if (a.size() != b.size()) return false;
