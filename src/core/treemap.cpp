@@ -152,14 +152,14 @@ void TreemapEngine::squarify(
 ) {
     if (items.empty()) {
         if (!current_row.empty()) {
-            bool vertical = (w < h);
+            bool vertical = (w >= h);
             layout_row(tree, current_row, x, y, w, h, vertical, current_depth, max_depth, min_size_threshold, out_tiles);
         }
         return;
     }
 
     Item next_item = items.front();
-    bool vertical = (w < h);
+    bool vertical = (w >= h);
     double side = vertical ? h : w;
 
     double curr_row_area = 0.0;

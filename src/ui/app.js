@@ -1,6 +1,7 @@
 /**
  * TreeMCP Main Application UI Controller
- * High-speed native desktop interactivity, synchronized treemap, top hogs table.
+ * High-speed native desktop interactivity, synchronized treemap,
+ * live extension legend strip, zero AI slop, zero phone emojis.
  */
 
 let treemapRenderer = null;
@@ -12,6 +13,7 @@ let expandedNodes = new Set();
 let contextTarget = null;
 let topHogsData = [];
 let duplicatesData = [];
+let activeLegendExt = null;
 
 // Session token for anti-CSRF
 const urlParams = new URLSearchParams(window.location.search);
@@ -26,20 +28,23 @@ async function secureFetch(url, options = {}) {
   return fetch(url, { ...options, headers });
 }
 
-// Number formatting: Standard US thousands grouping (e.g. 1,249,600)
+// Standard US thousands grouping (e.g. 1,249,600)
 function formatNumber(num) {
   if (num === undefined || num === null) return '0';
   return Number(num).toLocaleString('en-US');
 }
 
-// Initialize when DOM ready
+// Vector SVG Icons for Tree Nodes
+const SVG_FOLDER = '<svg class="tree-glyph-svg" width="13" height="13" viewBox="0 0 24 24" fill="#eab308"><path d="M2 6a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z"/></svg>';
+const SVG_FILE = '<svg class="tree-glyph-svg" width="13" height="13" viewBox="0 0 24 24" fill="#94a3b8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>';
+
 document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('treemap-canvas');
   treemapRenderer = new TreemapRenderer(canvas, handleTileClick, handleTileHover);
-  
-  // Initial size check
-  setTimeout(() => treemapRenderer.resize(), 50);
 
+  setTimeout(() => treemapRenderer.resize(), 60);
+
+  setupMenuBar();
   setupTabs();
   setupSplitter();
   setupMcpConfigCard();
@@ -49,30 +54,111 @@ document.addEventListener('DOMContentLoaded', () => {
   startMcpEventStream();
 });
 
-// Segmented tab switching
+// 1. Native Desktop Menu Bar Wiring
+function setupMenuBar() {
+  const triggerScan = () => {
+    const customPath = document.getElementById('custom-path').value.trim();
+    const driveSelect = document.getElementById('drive-select').value;
+    startScan(customPath || driveSelect);
+  };
+
+  const bind = (id, fn) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', fn);
+  };
+
+  bind('m-open-path', () => {
+    const p = prompt('Enter directory path to scan:', document.getElementById('custom-path').value || 'C:\\');
+    if (p) {
+      document.getElementById('custom-path').value = p.trim();
+      triggerScan();
+    }
+  });
+
+  bind('m-rescan', triggerScan);
+  bind('m-export-csv', () => {
+    window.location.href = '/api/export-csv?token=' + encodeURIComponent(sessionToken);
+  });
+  bind('m-exit', () => {
+    window.close();
+  });
+
+  bind('m-scan-now', triggerScan);
+  bind('m-elevate-admin', requestAdminElevation);
+  bind('m-clear-cache', () => {
+    currentScanData = null;
+    treemapRenderer.setTiles([]);
+    document.getElementById('tree-table-body').innerHTML = '<tr><td colspan="6" class="table-placeholder">Scan cleared.</td></tr>';
+    document.getElementById('legend-bar').innerHTML = '<span class="legend-empty-text">Scan a drive to view file type legend</span>';
+  });
+
+  bind('m-view-tree', () => switchTab('pane-tree'));
+  bind('m-view-hogs', () => switchTab('pane-top-hogs'));
+  bind('m-view-dups', () => switchTab('pane-duplicates'));
+  bind('m-view-ext', () => switchTab('pane-ext'));
+  bind('m-view-mcp', () => switchTab('pane-mcp'));
+
+  bind('m-reset-panels', () => {
+    const upperPane = document.getElementById('pane-upper');
+    const viewport = document.getElementById('viewport');
+    upperPane.style.height = `${Math.floor(viewport.clientHeight * 0.5)}px`;
+    treemapRenderer.resize();
+  });
+
+  bind('m-tool-recycle', () => {
+    if (contextTarget) document.getElementById('ctx-safe-recycle').click();
+  });
+  bind('m-tool-explorer', () => {
+    if (contextTarget && contextTarget.full_path) {
+      secureFetch('/api/open-explorer?path=' + encodeURIComponent(contextTarget.full_path));
+    }
+  });
+  bind('m-tool-copy', () => {
+    if (contextTarget && contextTarget.full_path) {
+      navigator.clipboard.writeText(contextTarget.full_path);
+    }
+  });
+  bind('m-tool-inspect', () => {
+    if (contextTarget) {
+      switchTab('pane-mcp');
+      logMcpAction(`Inspected: ${contextTarget.full_path} (${treemapRenderer.formatSize(contextTarget.size)})`);
+    }
+  });
+
+  bind('m-help-github', () => {
+    window.open('https://github.com/AMG555/TreeMCP', '_blank');
+  });
+  bind('m-help-mcp-spec', () => {
+    window.open('https://modelcontextprotocol.io', '_blank');
+  });
+  bind('m-help-about', () => {
+    document.getElementById('modal-about').style.display = 'flex';
+  });
+}
+
+function switchTab(targetId) {
+  document.querySelectorAll('.d-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.target === targetId);
+  });
+  document.querySelectorAll('.tab-content-pane').forEach(p => {
+    p.classList.toggle('active', p.id === targetId);
+  });
+
+  if (targetId === 'pane-top-hogs' && topHogsData.length === 0) loadTopHogs();
+  if (targetId === 'pane-duplicates' && duplicatesData.length === 0) loadDuplicates();
+}
+
+// 2. Segmented Desktop Tab Switching
 function setupTabs() {
-  const tabs = document.querySelectorAll('.tab-btn');
+  const tabs = document.querySelectorAll('.d-tab-btn');
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
-      tabs.forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content-pane').forEach(p => p.classList.remove('active'));
-
-      tab.classList.add('active');
-      const targetId = tab.dataset.target;
-      const targetPane = document.getElementById(targetId);
-      if (targetPane) targetPane.classList.add('active');
-
-      if (targetId === 'pane-top-hogs' && topHogsData.length === 0) {
-        loadTopHogs();
-      }
-      if (targetId === 'pane-duplicates' && duplicatesData.length === 0) {
-        loadDuplicates();
-      }
+      switchTab(tab.dataset.target);
     });
   });
 }
 
-// Draggable Horizontal Splitter
+// 3. Draggable Horizontal Splitter
 function setupSplitter() {
   const splitter = document.getElementById('splitter');
   const upperPane = document.getElementById('pane-upper');
@@ -95,8 +181,7 @@ function setupSplitter() {
     if (!isDragging) return;
     const dy = e.clientY - startY;
     const viewportHeight = viewport.getBoundingClientRect().height;
-    const newHeight = Math.max(120, Math.min(viewportHeight - 120, startHeight + dy));
-
+    const newHeight = Math.max(100, Math.min(viewportHeight - 100, startHeight + dy));
     upperPane.style.height = `${newHeight}px`;
     treemapRenderer.resize();
   });
@@ -109,93 +194,40 @@ function setupSplitter() {
       treemapRenderer.resize();
     }
   });
-
-  // Touchscreen Drag Support
-  splitter.addEventListener('touchstart', (e) => {
-    if (e.touches.length !== 1) return;
-    isDragging = true;
-    startY = e.touches[0].clientY;
-    startHeight = upperPane.getBoundingClientRect().height;
-    splitter.classList.add('dragging');
-  }, { passive: true });
-
-  window.addEventListener('touchmove', (e) => {
-    if (!isDragging || e.touches.length !== 1) return;
-    const dy = e.touches[0].clientY - startY;
-    const viewportHeight = viewport.getBoundingClientRect().height;
-    const newHeight = Math.max(120, Math.min(viewportHeight - 120, startHeight + dy));
-    upperPane.style.height = `${newHeight}px`;
-    treemapRenderer.resize();
-  }, { passive: true });
-
-  window.addEventListener('touchend', () => {
-    if (isDragging) {
-      isDragging = false;
-      splitter.classList.remove('dragging');
-      treemapRenderer.resize();
-    }
-  });
 }
 
+// 4. MCP Config Generator Card
 function setupMcpConfigCard() {
-  const configs = {
-    claude: {
-      path: '%APPDATA%\\Claude\\claude_desktop_config.json',
-      json: JSON.stringify({
-        mcpServers: {
-          treemcp: {
-            command: "TreeMCP.exe",
-            args: ["--mcp"]
-          }
-        }
-      }, null, 2)
-    },
-    cursor: {
-      path: '%USERPROFILE%\\.cursor\\mcp.json',
-      json: JSON.stringify({
-        mcpServers: {
-          treemcp: {
-            command: "TreeMCP.exe",
-            args: ["--mcp"]
-          }
-        }
-      }, null, 2)
-    },
-    antigravity: {
-      path: '%USERPROFILE%\\.gemini\\config\\mcp_config.json',
-      json: JSON.stringify({
-        mcpServers: {
-          treemcp: {
-            command: "TreeMCP.exe",
-            args: ["--mcp"]
-          }
-        }
-      }, null, 2)
-    },
-    windsurf: {
-      path: '~/.codeium/windsurf/mcp_config.json',
-      json: JSON.stringify({
-        mcpServers: {
-          treemcp: {
-            command: "TreeMCP.exe",
-            args: ["--mcp"]
-          }
-        }
-      }, null, 2)
-    }
-  };
-
-  const buttons = document.querySelectorAll('.conn-tab-btn');
+  const tabs = document.querySelectorAll('.conn-tab-btn');
   const pathElem = document.getElementById('mcp-config-path');
   const snippetElem = document.getElementById('mcp-json-snippet');
   const copyBtn = document.getElementById('btn-copy-mcp');
   const copyBtnText = document.getElementById('copy-btn-text');
 
-  buttons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      buttons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const client = btn.dataset.client;
+  const configs = {
+    claude: {
+      path: '%APPDATA%\\Claude\\claude_desktop_config.json',
+      json: `{\n  "mcpServers": {\n    "treemcp": {\n      "command": "TreeMCP.exe",\n      "args": ["--mcp"]\n    }\n  }\n}`
+    },
+    cursor: {
+      path: '%USERPROFILE%\\.cursor\\mcp.json',
+      json: `{\n  "mcpServers": {\n    "treemcp": {\n      "command": "TreeMCP.exe",\n      "args": ["--mcp"]\n    }\n  }\n}`
+    },
+    antigravity: {
+      path: '%USERPROFILE%\\.gemini\\antigravity\\mcp_config.json',
+      json: `{\n  "mcpServers": {\n    "treemcp": {\n      "command": "TreeMCP.exe",\n      "args": ["--mcp"]\n    }\n  }\n}`
+    },
+    windsurf: {
+      path: '%USERPROFILE%\\.codeium\\windsurf\\mcp_config.json',
+      json: `{\n  "mcpServers": {\n    "treemcp": {\n      "command": "TreeMCP.exe",\n      "args": ["--mcp"]\n    }\n  }\n}`
+    }
+  };
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const client = tab.dataset.client;
       if (configs[client]) {
         pathElem.textContent = configs[client].path;
         snippetElem.textContent = configs[client].json;
@@ -216,37 +248,21 @@ function setupMcpConfigCard() {
   }
 }
 
+// 5. Toolbar and Application Event Listeners
 function setupEventListeners() {
   const triggerScan = () => {
     const customPath = document.getElementById('custom-path').value.trim();
     const driveSelect = document.getElementById('drive-select').value;
-    const pathToScan = customPath || driveSelect;
-    startScan(pathToScan);
+    startScan(customPath || driveSelect);
   };
 
   document.getElementById('btn-scan').addEventListener('click', triggerScan);
 
   const btnRefresh = document.getElementById('btn-refresh');
-  if (btnRefresh) {
-    btnRefresh.addEventListener('click', triggerScan);
-  }
+  if (btnRefresh) btnRefresh.addEventListener('click', triggerScan);
 
   const btnElevate = document.getElementById('btn-elevate');
-  if (btnElevate) {
-    btnElevate.addEventListener('click', async () => {
-      try {
-        const res = await secureFetch('/api/elevate');
-        const data = await res.json();
-        if (data.ok) {
-          alert('Administrator instance launched. Please allow the UAC prompt to proceed with instant raw MFT scanning.');
-        } else {
-          alert('Failed to request elevation: ' + (data.message || 'Operation cancelled.'));
-        }
-      } catch (err) {
-        alert('Elevation error: ' + err.message);
-      }
-    });
-  }
+  if (btnElevate) btnElevate.addEventListener('click', requestAdminElevation);
 
   const btnExportCsv = document.getElementById('btn-export-csv');
   if (btnExportCsv) {
@@ -265,8 +281,10 @@ function setupEventListeners() {
     if (drv) updateDriveUsage(drv);
   });
 
+  let filterTimeout = null;
   document.getElementById('search-filter').addEventListener('input', (e) => {
-    filterActiveTable(e.target.value);
+    clearTimeout(filterTimeout);
+    filterTimeout = setTimeout(() => filterActiveTable(e.target.value), 80);
   });
 
   // Modal Dialogs
@@ -295,6 +313,9 @@ function setupEventListeners() {
     } else if (e.ctrlKey && e.key === 'd') {
       e.preventDefault();
       document.getElementById('drive-select').focus();
+    } else if (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+      e.preventDefault();
+      requestAdminElevation();
     } else if (e.key === 'Escape') {
       if (modalAbout) modalAbout.style.display = 'none';
       document.getElementById('context-menu').style.display = 'none';
@@ -359,40 +380,73 @@ function setupEventListeners() {
 
   document.getElementById('ctx-mcp-inspect').addEventListener('click', () => {
     if (contextTarget) {
-      document.querySelector('[data-target="pane-mcp"]').click();
+      switchTab('pane-mcp');
       logMcpAction(`Inspected item: ${contextTarget.full_path} (${treemapRenderer.formatSize(contextTarget.size)})`);
     }
   });
 
-  const ctxRecycle = document.getElementById('ctx-safe-recycle');
-  if (ctxRecycle) {
-    ctxRecycle.addEventListener('click', async () => {
-      if (!contextTarget || !contextTarget.full_path) return;
-      const targetPath = contextTarget.full_path;
-      if (confirm(`Move "${targetPath}" safely to the Recycle Bin / Trash?\n\n(Protected system paths are automatically blocked).`)) {
-        try {
-          const res = await secureFetch('/api/clean?path=' + encodeURIComponent(targetPath) + '&dry_run=false');
-          const data = await res.json();
-          if (data.success) {
-            alert(`Item successfully relocated to Recycle Bin / Trash.`);
-            triggerScan();
-          } else {
-            alert(`Operation blocked: ${data.message || 'Protected system file or access denied.'}`);
-          }
-        } catch (err) {
-          alert(`Error communicating with backend: ${err.message}`);
+  document.getElementById('ctx-safe-recycle').addEventListener('click', async () => {
+    if (!contextTarget || !contextTarget.full_path) return;
+    const targetPath = contextTarget.full_path;
+    if (confirm(`Move "${targetPath}" safely to the Recycle Bin / Trash?\n\n(Protected system paths are automatically blocked).`)) {
+      try {
+        const res = await secureFetch('/api/clean?path=' + encodeURIComponent(targetPath) + '&dry_run=false');
+        const data = await res.json();
+        if (data.success) {
+          alert('Item successfully moved to Recycle Bin.');
+          triggerScan();
+        } else {
+          alert('Operation blocked: ' + (data.message || 'Protected system file or access denied.'));
         }
+      } catch (err) {
+        alert('Backend communication error: ' + err.message);
       }
-    });
-  }
+    }
+  });
 
-  const ctxProps = document.getElementById('ctx-properties');
-  if (ctxProps) {
-    ctxProps.addEventListener('click', () => {
-      if (!contextTarget) return;
-      alert(`Properties for: ${contextTarget.name}\n\nFull Path: ${contextTarget.full_path}\nSize: ${treemapRenderer.formatSize(contextTarget.size)}\nType: ${contextTarget.is_dir ? 'Directory' : 'File'}`);
-    });
+  document.getElementById('ctx-properties').addEventListener('click', () => {
+    if (!contextTarget) return;
+    alert(`Properties for: ${contextTarget.name}\n\nFull Path: ${contextTarget.full_path}\nSize: ${treemapRenderer.formatSize(contextTarget.size)}\nType: ${contextTarget.is_dir ? 'Directory' : 'File'}`);
+  });
+}
+
+async function requestAdminElevation() {
+  try {
+    const res = await secureFetch('/api/elevate');
+    const data = await res.json();
+    if (data.ok) {
+      alert('Administrator UAC prompt requested. Please accept the prompt to run with direct raw NTFS MFT scanning.');
+    } else {
+      alert('Elevation could not be completed: ' + (data.message || 'Cancelled.'));
+    }
+  } catch (err) {
+    alert('Elevation error: ' + err.message);
   }
+}
+
+async function checkAdminStatus() {
+  try {
+    const res = await secureFetch('/api/system-info');
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const btnElevate = document.getElementById('btn-elevate');
+    const engineTag = document.getElementById('status-engine-tag');
+
+    if (data.is_admin) {
+      if (btnElevate) btnElevate.style.display = 'none';
+      if (engineTag) {
+        engineTag.textContent = 'NTFS MFT Direct (Admin)';
+        engineTag.className = 'status-tag tag-success';
+      }
+    } else {
+      if (btnElevate) btnElevate.style.display = 'inline-flex';
+      if (engineTag) {
+        engineTag.textContent = 'Win32 Standard (Run as Admin for 1s MFT)';
+        engineTag.className = 'status-tag';
+      }
+    }
+  } catch (e) {}
 }
 
 async function loadDrives() {
@@ -409,7 +463,7 @@ async function loadDrives() {
       opt.value = d.path;
       const totalGb = (d.total_bytes / (1024 ** 3)).toFixed(1);
       const freeGb = (d.free_bytes / (1024 ** 3)).toFixed(1);
-      opt.textContent = `${d.path} [${d.volume_name || 'Local Disk'}] - ${freeGb} GB free of ${totalGb} GB (${d.file_system})`;
+      opt.textContent = `${d.path} [${d.volume_name || 'Drive'}] - ${freeGb} GB free of ${totalGb} GB (${d.file_system})`;
       select.appendChild(opt);
     });
 
@@ -426,14 +480,31 @@ function updateDriveUsage(drive) {
   if (!drive || !drive.total_bytes) return;
   const used = drive.total_bytes - drive.free_bytes;
   const pct = Math.round((used / drive.total_bytes) * 100);
-  const badge = document.getElementById('drive-usage-badge');
-  badge.textContent = `${drive.path} ${pct}% full (${treemapRenderer.formatSize(used)} used / ${treemapRenderer.formatSize(drive.total_bytes)} total)`;
+
+  const fill = document.getElementById('capacity-fill');
+  const label = document.getElementById('capacity-text');
+
+  if (fill) {
+    fill.style.width = `${pct}%`;
+    if (pct >= 90) {
+      fill.style.backgroundColor = 'var(--accent-red)';
+    } else if (pct >= 80) {
+      fill.style.backgroundColor = 'var(--accent-amber)';
+    } else {
+      fill.style.backgroundColor = 'var(--accent-blue)';
+    }
+  }
+
+  if (label) {
+    label.textContent = `${drive.path} ${pct}% used (${treemapRenderer.formatSize(used)} / ${treemapRenderer.formatSize(drive.total_bytes)})`;
+  }
 }
 
+// 6. Start Scan Operation
 async function startScan(path) {
   const btnScan = document.getElementById('btn-scan');
   btnScan.disabled = true;
-  btnScan.innerHTML = '<span class="btn-icon">⏳</span><span>Scanning...</span>';
+  btnScan.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg><span>Scanning...</span>';
 
   document.getElementById('status-text').textContent = `Scanning ${path}...`;
 
@@ -449,7 +520,8 @@ async function startScan(path) {
     topHogsData = []; // Invalidate top hogs cache
 
     renderScanResults(data);
-    logMcpAction(`Scan completed: ${path} (${formatNumber(data.stats.total_files)} files in ${(data.stats.duration_ms / 1000).toFixed(2)}s)`);
+    const modeStr = data.stats.mft_used ? 'NTFS MFT Direct' : 'Win32 Walker';
+    logMcpAction(`Scan completed: ${path} (${formatNumber(data.stats.total_files)} files in ${(data.stats.duration_ms / 1000).toFixed(2)}s via ${modeStr})`);
 
     // Pre-fetch Top 100 files in background
     loadTopHogs();
@@ -458,19 +530,21 @@ async function startScan(path) {
     document.getElementById('status-text').textContent = 'Scan error.';
   } finally {
     btnScan.disabled = false;
-    btnScan.innerHTML = '<span class="btn-icon">▶</span><span>Scan</span>';
+    btnScan.innerHTML = '<svg class="tb-btn-svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span>Scan</span>';
   }
 }
 
 function renderScanResults(data) {
   if (!data) return;
 
-  // Header quick stats (Standard US thousands grouping)
+  // Header quick metrics (Standard US thousands grouping)
   document.getElementById('stat-files').textContent = formatNumber(data.stats.total_files || 0);
   document.getElementById('stat-folders').textContent = formatNumber(data.stats.total_dirs || 0);
   document.getElementById('stat-size').textContent = treemapRenderer.formatSize(data.stats.total_bytes || 0);
   document.getElementById('stat-time').textContent = `${(data.stats.duration_ms / 1000).toFixed(2)}s`;
-  document.getElementById('status-text').textContent = `Scan completed in ${(data.stats.duration_ms / 1000).toFixed(2)}s`;
+
+  const engineType = data.stats.mft_used ? 'NTFS MFT Direct' : 'Win32 Standard';
+  document.getElementById('status-text').textContent = `Scan completed in ${(data.stats.duration_ms / 1000).toFixed(2)}s (${engineType})`;
 
   // Render Tree View
   renderTreeView(data.tree_root);
@@ -478,9 +552,70 @@ function renderScanResults(data) {
   // Render Extensions Table
   renderExtensionsTable(data.extensions || [], data.stats.total_bytes || 0);
 
-  // Render Treemap Canvas (dynamically scaled to 100% canvas resolution)
+  // Render Live Extension Legend Strip directly above treemap
+  renderLegendBar(data.extensions || [], data.stats.total_bytes || 0);
+
+  // Render Treemap Canvas (100% canvas coverage)
   treemapRenderer.setTiles(data.treemap_tiles || []);
   updateBreadcrumbs([data.tree_root ? data.tree_root.name : 'Root']);
+}
+
+// 7. Live Interactive Extension Legend Strip above Treemap
+function renderLegendBar(extensions, totalBytes) {
+  const bar = document.getElementById('legend-bar');
+  bar.innerHTML = '';
+
+  if (!extensions || extensions.length === 0) {
+    bar.innerHTML = '<span class="legend-empty-text">No extension data</span>';
+    return;
+  }
+
+  // Show top 8 extensions
+  const topExts = extensions.slice(0, 8);
+  activeLegendExt = null;
+
+  topExts.forEach(ext => {
+    const chip = document.createElement('div');
+    chip.className = 'legend-chip';
+    const pct = totalBytes > 0 ? ((ext.total_size / totalBytes) * 100).toFixed(1) : 0;
+    const extName = ext.ext || '[none]';
+
+    chip.innerHTML = `
+      <span class="legend-swatch" style="background-color: ${ext.color};"></span>
+      <span class="legend-ext">${escapeHtml(extName)}</span>
+      <span class="legend-size">${treemapRenderer.formatSize(ext.total_size)}</span>
+      <span class="legend-pct">${pct}%</span>
+    `;
+
+    chip.addEventListener('click', () => {
+      if (activeLegendExt === extName) {
+        // Toggle off
+        activeLegendExt = null;
+        chip.classList.remove('active');
+        treemapRenderer.setHighlightedExtension(null);
+      } else {
+        // Toggle on
+        document.querySelectorAll('.legend-chip').forEach(c => c.classList.remove('active'));
+        activeLegendExt = extName;
+        chip.classList.add('active');
+        treemapRenderer.setHighlightedExtension(ext.ext);
+      }
+    });
+
+    chip.addEventListener('mouseenter', () => {
+      if (!activeLegendExt) {
+        treemapRenderer.setHighlightedExtension(ext.ext);
+      }
+    });
+
+    chip.addEventListener('mouseleave', () => {
+      if (!activeLegendExt) {
+        treemapRenderer.setHighlightedExtension(null);
+      }
+    });
+
+    bar.appendChild(chip);
+  });
 }
 
 function renderTreeView(root) {
@@ -502,7 +637,7 @@ function renderTreeNode(node, depth, tbody, rootTotalSize) {
   tr.dataset.isDir = node.is_dir;
 
   const pctOfParent = (rootTotalSize > 0) ? ((node.size / rootTotalSize) * 100).toFixed(1) : 0;
-  const icon = node.is_dir ? '📁' : '📄';
+  const iconSvg = node.is_dir ? SVG_FOLDER : SVG_FILE;
   const hasChildren = node.children && node.children.length > 0;
   const isExpanded = expandedNodes.has(node.node_idx);
   const expanderChar = hasChildren ? (isExpanded ? '▼' : '▶') : '';
@@ -510,9 +645,9 @@ function renderTreeNode(node, depth, tbody, rootTotalSize) {
   tr.innerHTML = `
     <td>
       <div class="tree-node-wrap">
-        <span class="tree-indent" style="width: ${depth * 16}px"></span>
+        <span class="tree-indent" style="width: ${depth * 14}px"></span>
         <span class="tree-expander">${expanderChar}</span>
-        <span class="tree-icon">${icon}</span>
+        ${iconSvg}
         <span class="tree-name" title="${escapeHtml(node.full_path)}">${escapeHtml(node.name)}</span>
       </div>
     </td>
@@ -545,6 +680,19 @@ function renderTreeNode(node, depth, tbody, rootTotalSize) {
     }
   });
 
+  // Double click directory to drill down in treemap
+  tr.addEventListener('dblclick', () => {
+    if (node.is_dir) {
+      secureFetch(`/api/treemap?node_idx=${node.node_idx}`)
+        .then(res => res.json())
+        .then(data => {
+          treemapRenderer.setTiles(data.tiles || []);
+          breadcrumbPath.push({ name: node.name, node_idx: node.node_idx });
+          updateBreadcrumbs();
+        });
+    }
+  });
+
   // Toggle expansion
   const expander = tr.querySelector('.tree-expander');
   if (hasChildren && expander) {
@@ -552,36 +700,138 @@ function renderTreeNode(node, depth, tbody, rootTotalSize) {
       e.stopPropagation();
       if (expandedNodes.has(node.node_idx)) {
         expandedNodes.delete(node.node_idx);
+        collapseNodeRows(node.node_idx, tbody);
+        expander.textContent = '▶';
       } else {
         expandedNodes.add(node.node_idx);
+        expander.textContent = '▼';
+        expandNodeChildren(node, depth + 1, tr, tbody, rootTotalSize);
       }
-      refreshVisibleTree(tbody, currentScanData.tree_root);
     });
   }
 
   tbody.appendChild(tr);
 
+  // If node is expanded initially, render its children
   if (isExpanded && hasChildren) {
-    node.children.forEach(child => {
+    for (const child of node.children) {
       renderTreeNode(child, depth + 1, tbody, rootTotalSize);
+    }
+  }
+}
+
+function expandNodeChildren(parentNode, depth, parentTr, tbody, rootTotalSize) {
+  if (!parentNode.children) return;
+  let insertAfterTr = parentTr;
+
+  for (const child of parentNode.children) {
+    const tr = document.createElement('tr');
+    tr.dataset.nodeIdx = child.node_idx;
+    tr.dataset.parentIdx = parentNode.node_idx;
+    tr.dataset.fullPath = child.full_path;
+    tr.dataset.size = child.size;
+    tr.dataset.isDir = child.is_dir;
+
+    const pctOfParent = (rootTotalSize > 0) ? ((child.size / rootTotalSize) * 100).toFixed(1) : 0;
+    const iconSvg = child.is_dir ? SVG_FOLDER : SVG_FILE;
+    const hasChildren = child.children && child.children.length > 0;
+    const isExpanded = expandedNodes.has(child.node_idx);
+    const expanderChar = hasChildren ? (isExpanded ? '▼' : '▶') : '';
+
+    tr.innerHTML = `
+      <td>
+        <div class="tree-node-wrap">
+          <span class="tree-indent" style="width: ${depth * 14}px"></span>
+          <span class="tree-expander">${expanderChar}</span>
+          ${iconSvg}
+          <span class="tree-name" title="${escapeHtml(child.full_path)}">${escapeHtml(child.name)}</span>
+        </div>
+      </td>
+      <td>
+        <div class="pct-cell-wrap">
+          <div class="pct-track">
+            <div class="pct-fill" style="width: ${pctOfParent}%"></div>
+          </div>
+          <span class="pct-val">${pctOfParent}%</span>
+        </div>
+      </td>
+      <td class="col-size">${treemapRenderer.formatSize(child.size)}</td>
+      <td class="col-alloc">${treemapRenderer.formatSize(child.allocated_size || child.size)}</td>
+      <td class="col-num">${formatNumber(child.file_count || 0)}</td>
+      <td class="col-num">${formatNumber(child.dir_count || 0)}</td>
+    `;
+
+    tr.addEventListener('click', () => {
+      document.querySelectorAll('#tree-table-body tr').forEach(r => r.classList.remove('selected'));
+      tr.classList.add('selected');
+      selectedNodeIdx = child.node_idx;
+      document.getElementById('status-selected').textContent = `${child.full_path} (${treemapRenderer.formatSize(child.size)})`;
+
+      const matchedTile = treemapRenderer.tiles.find(t => t.node_idx === child.node_idx);
+      if (matchedTile) {
+        treemapRenderer.selectedTile = matchedTile;
+        treemapRenderer.render();
+      }
     });
+
+    tr.addEventListener('dblclick', () => {
+      if (child.is_dir) {
+        secureFetch(`/api/treemap?node_idx=${child.node_idx}`)
+          .then(res => res.json())
+          .then(data => {
+            treemapRenderer.setTiles(data.tiles || []);
+            breadcrumbPath.push({ name: child.name, node_idx: child.node_idx });
+            updateBreadcrumbs();
+          });
+      }
+    });
+
+    const exp = tr.querySelector('.tree-expander');
+    if (hasChildren && exp) {
+      exp.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (expandedNodes.has(child.node_idx)) {
+          expandedNodes.delete(child.node_idx);
+          collapseNodeRows(child.node_idx, tbody);
+          exp.textContent = '▶';
+        } else {
+          expandedNodes.add(child.node_idx);
+          exp.textContent = '▼';
+          expandNodeChildren(child, depth + 1, tr, tbody, rootTotalSize);
+        }
+      });
+    }
+
+    insertAfterTr.after(tr);
+    insertAfterTr = tr;
   }
 }
 
-function refreshVisibleTree(tbody, root) {
-  tbody.innerHTML = '';
-  if (root) {
-    renderTreeNode(root, 0, tbody, root.size);
+function collapseNodeRows(parentNodeIdx, tbody) {
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  const idx = rows.findIndex(r => Number(r.dataset.nodeIdx) === parentNodeIdx);
+  if (idx < 0) return;
+
+  const parentDepth = parseInt(rows[idx].querySelector('.tree-indent')?.style.width || '0', 10);
+
+  for (let i = idx + 1; i < rows.length; i++) {
+    const row = rows[i];
+    const rowDepth = parseInt(row.querySelector('.tree-indent')?.style.width || '0', 10);
+    if (rowDepth > parentDepth) {
+      row.remove();
+    } else {
+      break;
+    }
   }
 }
 
-// Load Top 100 Largest Files
+// 8. Top 100 Largest Files
 async function loadTopHogs() {
   try {
-    const res = await secureFetch('/api/top-hogs?limit=100&filter=files');
+    const res = await secureFetch('/api/top-hogs?limit=100');
     if (!res.ok) return;
     const data = await res.json();
-    topHogsData = data.items || [];
+    topHogsData = data.hogs || [];
     renderTopHogsTable(topHogsData);
   } catch (err) {
     console.error('Failed to load top hogs:', err);
@@ -599,49 +849,33 @@ function renderTopHogsTable(items) {
 
   items.forEach((it, idx) => {
     const tr = document.createElement('tr');
-    tr.dataset.nodeIdx = it.node_idx;
-    tr.dataset.fullPath = it.path;
+    tr.dataset.fullPath = it.full_path;
     tr.dataset.name = it.name;
     tr.dataset.size = it.size;
 
     tr.innerHTML = `
       <td class="col-num" style="color: var(--text-dim);">${idx + 1}</td>
       <td style="font-weight: 500;" title="${escapeHtml(it.name)}">
-        <span class="tree-icon">📄</span>${escapeHtml(it.name)}
+        ${SVG_FILE}${escapeHtml(it.name)}
       </td>
-      <td class="col-size" style="font-weight: 600; color: #38bdf8;">${treemapRenderer.formatSize(it.size)}</td>
-      <td style="color: var(--text-muted); font-family: var(--font-mono);">${escapeHtml(it.extension || '-')}</td>
-      <td style="color: var(--text-dim); font-family: var(--font-mono);" title="${escapeHtml(it.path)}">${escapeHtml(it.path)}</td>
+      <td class="col-size" style="font-weight: 600;">${treemapRenderer.formatSize(it.size)}</td>
+      <td style="font-family: var(--font-mono); color: #38bdf8;">${escapeHtml(it.extension || '[none]')}</td>
+      <td style="color: var(--text-dim); font-family: var(--font-mono); font-size: 10px;" title="${escapeHtml(it.full_path)}">
+        ${escapeHtml(it.full_path)}
+      </td>
     `;
 
     tr.addEventListener('click', () => {
       document.querySelectorAll('#hogs-table-body tr').forEach(r => r.classList.remove('selected'));
       tr.classList.add('selected');
-      document.getElementById('status-selected').textContent = `${it.path} (${treemapRenderer.formatSize(it.size)})`;
-
-      const matchedTile = treemapRenderer.tiles.find(t => t.node_idx === it.node_idx);
-      if (matchedTile) {
-        treemapRenderer.selectedTile = matchedTile;
-        treemapRenderer.render();
-      }
+      document.getElementById('status-selected').textContent = `${it.full_path} (${treemapRenderer.formatSize(it.size)})`;
     });
 
     tbody.appendChild(tr);
   });
 }
 
-async function checkAdminStatus() {
-  try {
-    const res = await secureFetch('/api/system-info');
-    if (!res.ok) return;
-    const data = await res.json();
-    const btnElevate = document.getElementById('btn-elevate');
-    if (btnElevate) {
-      btnElevate.style.display = data.is_admin ? 'none' : 'inline-flex';
-    }
-  } catch (e) {}
-}
-
+// 9. Duplicate Candidate Finder
 async function loadDuplicates() {
   try {
     const res = await secureFetch('/api/duplicates');
@@ -672,7 +906,7 @@ function renderDuplicatesTable(items) {
     tr.innerHTML = `
       <td class="col-num" style="color: var(--text-dim);">${idx + 1}</td>
       <td style="font-weight: 500;" title="${escapeHtml(it.name)}">
-        <span class="tree-icon">📄</span>${escapeHtml(it.name)}
+        ${SVG_FILE}${escapeHtml(it.name)}
       </td>
       <td class="col-size">${treemapRenderer.formatSize(it.size)}</td>
       <td class="col-size" style="font-weight: 700; color: #f59e0b;">${treemapRenderer.formatSize(it.wasted_bytes)}</td>
@@ -692,9 +926,15 @@ function renderDuplicatesTable(items) {
   });
 }
 
+// 10. File Extension Breakdown Table
 function renderExtensionsTable(extensions, totalBytes) {
   const tbody = document.getElementById('ext-table-body');
   tbody.innerHTML = '';
+
+  if (!extensions || extensions.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="table-placeholder">No extension data available.</td></tr>';
+    return;
+  }
 
   extensions.forEach(ext => {
     const tr = document.createElement('tr');
@@ -715,76 +955,23 @@ function renderExtensionsTable(extensions, totalBytes) {
       </td>
       <td class="col-num">${formatNumber(ext.count)}</td>
     `;
-    tbody.appendChild(tr);
-  });
-}
 
-async function checkAdminStatus() {
-  try {
-    const res = await secureFetch('/api/system-info');
-    if (!res.ok) return;
-    const data = await res.json();
-    const btnElevate = document.getElementById('btn-elevate');
-    if (btnElevate) {
-      btnElevate.style.display = data.is_admin ? 'none' : 'inline-flex';
-    }
-  } catch (e) {}
-}
-
-async function loadDuplicates() {
-  try {
-    const res = await secureFetch('/api/duplicates');
-    if (!res.ok) return;
-    const data = await res.json();
-    duplicatesData = data.duplicates || [];
-    renderDuplicatesTable(duplicatesData);
-  } catch (err) {
-    console.error('Failed to load duplicates:', err);
-  }
-}
-
-function renderDuplicatesTable(items) {
-  const tbody = document.getElementById('duplicates-table-body');
-  tbody.innerHTML = '';
-
-  if (!items || items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="table-placeholder">No duplicate candidates found (&gt; 1 MB).</td></tr>';
-    return;
-  }
-
-  items.forEach((it, idx) => {
-    const tr = document.createElement('tr');
-    tr.dataset.fullPath = it.paths[0] || '';
-    tr.dataset.name = it.name;
-    tr.dataset.size = it.size;
-
-    tr.innerHTML = `
-      <td class="col-num" style="color: var(--text-dim);">${idx + 1}</td>
-      <td style="font-weight: 500;" title="${escapeHtml(it.name)}">
-        <span class="tree-icon">📄</span>${escapeHtml(it.name)}
-      </td>
-      <td class="col-size">${treemapRenderer.formatSize(it.size)}</td>
-      <td class="col-size" style="font-weight: 700; color: #f59e0b;">${treemapRenderer.formatSize(it.wasted_bytes)}</td>
-      <td class="col-num" style="font-weight: 600;">${it.paths.length}</td>
-      <td style="color: var(--text-dim); font-family: var(--font-mono); font-size: 10px;" title="${escapeHtml(it.paths.join('\n'))}">
-        ${escapeHtml(it.paths[0])} <span style="color: var(--text-muted);">(+${it.paths.length - 1} more)</span>
-      </td>
-    `;
-
+    // Click extension row to highlight in Treemap
     tr.addEventListener('click', () => {
-      document.querySelectorAll('#duplicates-table-body tr').forEach(r => r.classList.remove('selected'));
+      document.querySelectorAll('#ext-table-body tr').forEach(r => r.classList.remove('selected'));
       tr.classList.add('selected');
-      document.getElementById('status-selected').textContent = `${it.name} (${it.paths.length} copies, ${treemapRenderer.formatSize(it.wasted_bytes)} wasted)`;
+      treemapRenderer.setHighlightedExtension(ext.ext);
+      document.getElementById('status-selected').textContent = `Filtered extension: ${ext.ext || '[none]'} (${treemapRenderer.formatSize(ext.total_size)})`;
     });
 
     tbody.appendChild(tr);
   });
 }
 
+// 11. Treemap Tile Interactions
 function handleTileClick(tile, isDblClick) {
   if (!tile) return;
 
-  // Highlight in Tree View
   const row = document.querySelector(`tr[data-node-idx="${tile.node_idx}"]`);
   if (row) {
     document.querySelectorAll('#tree-table-body tr').forEach(r => r.classList.remove('selected'));
@@ -813,11 +1000,11 @@ function handleTileHover(tile, clientX, clientY) {
   }
 
   tooltip.style.display = 'block';
-  tooltip.style.left = `${Math.min(window.innerWidth - 360, clientX + 16)}px`;
-  tooltip.style.top = `${Math.min(window.innerHeight - 120, clientY + 16)}px`;
+  tooltip.style.left = `${Math.min(window.innerWidth - 370, clientX + 16)}px`;
+  tooltip.style.top = `${Math.min(window.innerHeight - 130, clientY + 16)}px`;
 
   tooltip.innerHTML = `
-    <div class="tt-name">${tile.is_dir ? '📁' : '📄'} ${escapeHtml(tile.name)}</div>
+    <div class="tt-name">${tile.name}</div>
     <div class="tt-row">
       <span>Size: <b>${treemapRenderer.formatSize(tile.size)}</b></span>
       <span>•</span>
@@ -861,37 +1048,32 @@ function updateBreadcrumbs(initial) {
 function showContextMenu(x, y) {
   const menu = document.getElementById('context-menu');
   menu.style.display = 'block';
-  menu.style.left = `${Math.min(window.innerWidth - 200, x)}px`;
-  menu.style.top = `${Math.min(window.innerHeight - 200, y)}px`;
+  menu.style.left = `${Math.min(window.innerWidth - 210, x)}px`;
+  menu.style.top = `${Math.min(window.innerHeight - 210, y)}px`;
 }
 
 function filterActiveTable(query) {
-  const q = (query || '').toLowerCase();
-  
-  // Filter Tree View
+  const q = (query || '').toLowerCase().trim();
+
   document.querySelectorAll('#tree-table-body tr').forEach(r => {
     if (!q) { r.style.display = ''; return; }
-    const text = r.textContent.toLowerCase();
-    r.style.display = text.includes(q) ? '' : 'none';
+    r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
   });
 
-  // Filter Top Hogs
   document.querySelectorAll('#hogs-table-body tr').forEach(r => {
     if (!q) { r.style.display = ''; return; }
-    const text = r.textContent.toLowerCase();
-    r.style.display = text.includes(q) ? '' : 'none';
+    r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
   });
 
-  // Filter Duplicates
   document.querySelectorAll('#duplicates-table-body tr').forEach(r => {
     if (!q) { r.style.display = ''; return; }
-    const text = r.textContent.toLowerCase();
-    r.style.display = text.includes(q) ? '' : 'none';
+    r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
   });
 }
 
 function logMcpAction(msg) {
   const log = document.getElementById('mcp-log');
+  if (!log) return;
   const line = document.createElement('div');
   line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
   log.prepend(line);
@@ -912,10 +1094,8 @@ function startMcpEventStream() {
       const total = (data.total_tokens_used || 0) + (data.total_tokens_saved || 0);
       const savingsPct = (total > 0) ? Math.round((data.total_tokens_saved / total) * 100) : 94;
       document.getElementById('mcp-stat-savings-pct').textContent = `${savingsPct}%`;
-    } catch (e) {
-      // ignore
-    }
-  }, 2000);
+    } catch (e) {}
+  }, 2500);
 }
 
 function escapeHtml(str) {
