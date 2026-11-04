@@ -79,7 +79,8 @@ function setupMenuBar() {
   bind('m-export-csv', () => {
     window.location.href = '/api/export-csv?token=' + encodeURIComponent(sessionToken);
   });
-  bind('m-exit', () => {
+  bind('m-exit', async () => {
+    try { await secureFetch('/api/exit'); } catch (e) {}
     window.close();
   });
 
@@ -194,6 +195,42 @@ function setupSplitter() {
       treemapRenderer.resize();
     }
   });
+
+  // Vertical Dual-Tree Splitter
+  const dualSplitter = document.getElementById('dual-splitter');
+  const dualLeft = document.querySelector('.dual-tree-left');
+  const dualWrapper = document.querySelector('.dual-tree-wrapper');
+
+  if (dualSplitter && dualLeft && dualWrapper) {
+    let isDualDragging = false;
+    let startX = 0;
+    let startW = 0;
+
+    dualSplitter.addEventListener('mousedown', (e) => {
+      isDualDragging = true;
+      startX = e.clientX;
+      startW = dualLeft.getBoundingClientRect().width;
+      dualSplitter.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDualDragging) return;
+      const dx = e.clientX - startX;
+      const totalW = dualWrapper.getBoundingClientRect().width;
+      const newW = Math.max(200, Math.min(totalW - 200, startW + dx));
+      dualLeft.style.flex = `0 0 ${newW}px`;
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isDualDragging) {
+        isDualDragging = false;
+        dualSplitter.classList.remove('dragging');
+        document.body.style.cursor = '';
+      }
+    });
+  }
 }
 
 // 4. MCP Config Generator Card
@@ -413,14 +450,22 @@ function setupEventListeners() {
 async function requestAdminElevation() {
   try {
     const res = await secureFetch('/api/elevate');
-    const data = await res.json();
+    const data = await res.json().catch(() => ({ ok: true }));
     if (data.ok) {
-      alert('Administrator UAC prompt requested. Please accept the prompt to run with direct raw NTFS MFT scanning.');
+      document.getElementById('status-text').textContent = 'Restarting with Administrator privileges...';
+      // Close old non-elevated browser window cleanly as new elevated window opens
+      setTimeout(() => {
+        window.close();
+      }, 800);
     } else {
       alert('Elevation could not be completed: ' + (data.message || 'Cancelled.'));
     }
   } catch (err) {
-    alert('Elevation error: ' + err.message);
+    // If connection dropped because old process yielded port, new elevated instance is opening
+    document.getElementById('status-text').textContent = 'Restarting with Administrator privileges...';
+    setTimeout(() => {
+      window.close();
+    }, 800);
   }
 }
 
@@ -537,6 +582,9 @@ async function startScan(path) {
 function renderScanResults(data) {
   if (!data) return;
 
+  // Refresh drive capacity bar with live drive free space from current selected drive
+  loadDrives();
+
   // Header quick metrics (Standard US thousands grouping)
   document.getElementById('stat-files').textContent = formatNumber(data.stats.total_files || 0);
   document.getElementById('stat-folders').textContent = formatNumber(data.stats.total_dirs || 0);
@@ -638,7 +686,7 @@ function renderTreeNode(node, depth, tbody, rootTotalSize) {
 
   const pctOfParent = (rootTotalSize > 0) ? ((node.size / rootTotalSize) * 100).toFixed(1) : 0;
   const iconSvg = node.is_dir ? SVG_FOLDER : SVG_FILE;
-  const hasChildren = node.children && node.children.length > 0;
+  const hasChildren = node.has_children || (node.children && node.children.length > 0) || (node.is_dir && node.file_count + node.dir_count > 0);
   const isExpanded = expandedNodes.has(node.node_idx);
   const expanderChar = hasChildren ? (isExpanded ? '▼' : '▶') : '';
 
@@ -696,7 +744,7 @@ function renderTreeNode(node, depth, tbody, rootTotalSize) {
   // Toggle expansion
   const expander = tr.querySelector('.tree-expander');
   if (hasChildren && expander) {
-    expander.addEventListener('click', (e) => {
+    expander.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (expandedNodes.has(node.node_idx)) {
         expandedNodes.delete(node.node_idx);
@@ -705,7 +753,7 @@ function renderTreeNode(node, depth, tbody, rootTotalSize) {
       } else {
         expandedNodes.add(node.node_idx);
         expander.textContent = '▼';
-        expandNodeChildren(node, depth + 1, tr, tbody, rootTotalSize);
+        await expandNodeChildren(node, depth + 1, tr, tbody, rootTotalSize);
       }
     });
   }
@@ -713,18 +761,33 @@ function renderTreeNode(node, depth, tbody, rootTotalSize) {
   tbody.appendChild(tr);
 
   // If node is expanded initially, render its children
-  if (isExpanded && hasChildren) {
+  if (isExpanded && node.children && node.children.length > 0) {
     for (const child of node.children) {
       renderTreeNode(child, depth + 1, tbody, rootTotalSize);
     }
   }
 }
 
-function expandNodeChildren(parentNode, depth, parentTr, tbody, rootTotalSize) {
-  if (!parentNode.children) return;
+async function expandNodeChildren(parentNode, depth, parentTr, tbody, rootTotalSize) {
+  let children = parentNode.children;
+
+  if (!children || children.length === 0) {
+    try {
+      const res = await secureFetch(`/api/tree-children?node_idx=${parentNode.node_idx}`);
+      if (res.ok) {
+        const data = await res.json();
+        children = data.children || [];
+        parentNode.children = children;
+      }
+    } catch (err) {
+      console.error('Failed to fetch tree children:', err);
+    }
+  }
+
+  if (!children || children.length === 0) return;
   let insertAfterTr = parentTr;
 
-  for (const child of parentNode.children) {
+  for (const child of children) {
     const tr = document.createElement('tr');
     tr.dataset.nodeIdx = child.node_idx;
     tr.dataset.parentIdx = parentNode.node_idx;
@@ -734,7 +797,7 @@ function expandNodeChildren(parentNode, depth, parentTr, tbody, rootTotalSize) {
 
     const pctOfParent = (rootTotalSize > 0) ? ((child.size / rootTotalSize) * 100).toFixed(1) : 0;
     const iconSvg = child.is_dir ? SVG_FOLDER : SVG_FILE;
-    const hasChildren = child.children && child.children.length > 0;
+    const hasChildren = child.has_children || (child.children && child.children.length > 0) || (child.is_dir && child.file_count + child.dir_count > 0);
     const isExpanded = expandedNodes.has(child.node_idx);
     const expanderChar = hasChildren ? (isExpanded ? '▼' : '▶') : '';
 
@@ -788,7 +851,7 @@ function expandNodeChildren(parentNode, depth, parentTr, tbody, rootTotalSize) {
 
     const exp = tr.querySelector('.tree-expander');
     if (hasChildren && exp) {
-      exp.addEventListener('click', (e) => {
+      exp.addEventListener('click', async (e) => {
         e.stopPropagation();
         if (expandedNodes.has(child.node_idx)) {
           expandedNodes.delete(child.node_idx);
@@ -797,7 +860,7 @@ function expandNodeChildren(parentNode, depth, parentTr, tbody, rootTotalSize) {
         } else {
           expandedNodes.add(child.node_idx);
           exp.textContent = '▼';
-          expandNodeChildren(child, depth + 1, tr, tbody, rootTotalSize);
+          await expandNodeChildren(child, depth + 1, tr, tbody, rootTotalSize);
         }
       });
     }
@@ -926,25 +989,69 @@ function renderDuplicatesTable(items) {
   });
 }
 
-// 10. File Extension Breakdown Table
+function getFileTypeDescription(ext) {
+  const e = (ext || '').toLowerCase();
+  const map = {
+    '.dll': 'Application extension',
+    '[no extension]': '(No Extension)',
+    '': '(No Extension)',
+    '.exe': 'Application',
+    '.sys': 'System file',
+    '.msi': 'Windows Installer Package',
+    '.bin': 'BIN File',
+    '.mkv': 'MKV File',
+    '.mp4': 'MP4 Video',
+    '.db': 'Data Base File',
+    '.lib': 'Object File Library',
+    '.js': 'JSFile',
+    '.cat': 'Security Catalog',
+    '.pak': 'PAK File',
+    '.json': 'JSON Source File',
+    '.so': 'SO File',
+    '.zip': 'Compressed (zipped) Folder',
+    '.rar': 'WinRAR Archive',
+    '.7z': '7-Zip Archive',
+    '.tar': 'TAR Archive',
+    '.gz': 'GZ Archive',
+    '.iso': 'Disc Image File',
+    '.vhd': 'Virtual Hard Disk',
+    '.mp3': 'MP3 Audio',
+    '.wav': 'Wave Sound',
+    '.jpg': 'JPEG image',
+    '.png': 'PNG image',
+    '.pdf': 'PDF Document',
+    '.docx': 'Word Document',
+    '.txt': 'Text Document',
+    '.cpp': 'C++ Source File',
+    '.h': 'C/C++ Header File',
+    '.py': 'Python File'
+  };
+  return map[e] || (e ? `${e.slice(1).toUpperCase()} File` : 'File');
+}
+
+// 10. File Extension Breakdown Table (WizTree Matrix Layout)
 function renderExtensionsTable(extensions, totalBytes) {
   const tbody = document.getElementById('ext-table-body');
   tbody.innerHTML = '';
 
   if (!extensions || extensions.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" class="table-placeholder">No extension data available.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="table-placeholder">No extension data available.</td></tr>';
     return;
   }
 
   extensions.forEach(ext => {
     const tr = document.createElement('tr');
     const pct = (totalBytes > 0) ? ((ext.total_size / totalBytes) * 100).toFixed(1) : 0;
+    const typeDesc = getFileTypeDescription(ext.ext);
+
     tr.innerHTML = `
       <td>
         <span class="ext-swatch" style="background-color: ${ext.color};"></span>
         <b style="font-family: var(--font-mono);">${escapeHtml(ext.ext || '[no extension]')}</b>
       </td>
-      <td class="col-size">${treemapRenderer.formatSize(ext.total_size)}</td>
+      <td style="color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(typeDesc)}">
+        ${escapeHtml(typeDesc)}
+      </td>
       <td>
         <div class="pct-cell-wrap">
           <div class="pct-track">
@@ -953,6 +1060,7 @@ function renderExtensionsTable(extensions, totalBytes) {
           <span class="pct-val">${pct}%</span>
         </div>
       </td>
+      <td class="col-size">${treemapRenderer.formatSize(ext.total_size)}</td>
       <td class="col-num">${formatNumber(ext.count)}</td>
     `;
 

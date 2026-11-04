@@ -15,8 +15,8 @@ public:
         const FileTree& tree,
         uint32_t root_idx,
         double x, double y, double width, double height,
-        int max_depth = 2,
-        uint64_t min_size_threshold = 1024 * 1024 // 1MB threshold for tile creation
+        int max_depth = 12,
+        uint64_t min_size_threshold = 10 * 1024 // 10KB threshold
     );
 
     // Hit-test mouse coordinate to find tile

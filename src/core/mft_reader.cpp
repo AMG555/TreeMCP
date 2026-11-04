@@ -229,6 +229,13 @@ bool MftReader::scan_volume(const std::string& drive_path, FileTree& tree, ScanS
                 uint16_t flags = *reinterpret_cast<uint16_t*>(rec + 22);
                 if ((flags & 0x01) == 0) continue; // Deleted record
 
+                // Check base record reference at offset 32 (8 bytes)
+                // If base record is non-zero, this is an extension record! Its attributes belong to the base record.
+                uint64_t base_mft_ref = *reinterpret_cast<uint64_t*>(rec + 32) & 0x0000FFFFFFFFFFFFULL;
+                if (base_mft_ref != 0) {
+                    continue; // Skip secondary extension record to avoid detached duplicate
+                }
+
                 bool is_dir = (flags & 0x02) != 0;
 
                 // Apply update sequence fixups

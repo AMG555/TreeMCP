@@ -450,15 +450,45 @@ std::string FileTree::format_size(uint64_t bytes) {
 }
 
 std::string FileTree::get_color_for_ext(const std::string& ext) {
-    if (ext == ".mp4" || ext == ".mkv" || ext == ".avi" || ext == ".mov" || ext == ".wmv") return "#00d2d3"; // Cyan Video
-    if (ext == ".zip" || ext == ".rar" || ext == ".7z" || ext == ".tar" || ext == ".gz") return "#ff9f43";  // Orange Archive
-    if (ext == ".exe" || ext == ".dll" || ext == ".sys" || ext == ".msi" || ext == ".bin") return "#10ac84"; // Green Binary
-    if (ext == ".iso" || ext == ".vhd" || ext == ".vhdx" || ext == ".img") return "#5f27cd";                 // Purple Disk Image
-    if (ext == ".mp3" || ext == ".wav" || ext == ".flac" || ext == ".m4a") return "#ee5253";                 // Red Audio
-    if (ext == ".jpg" || ext == ".png" || ext == ".gif" || ext == ".webp" || ext == ".bmp") return "#feca57"; // Yellow Image
-    if (ext == ".pdf" || ext == ".doc" || ext == ".docx" || ext == ".xlsx" || ext == ".pptx") return "#54a0ff";// Blue Doc
-    if (ext == ".cpp" || ext == ".h" || ext == ".js" || ext == ".ts" || ext == ".py" || ext == ".rs") return "#c8d6e5"; // Light Code
-    return "#8395a7"; // Default Grey
+    // WizTree Canonical Extension Color Palette
+    if (ext == ".dll") return "#8dc63f"; // Lime green (.dll)
+    if (ext == "[no extension]" || ext.empty()) return "#4a90e2"; // Soft slate blue
+    if (ext == ".exe") return "#0099ff"; // Electric azure (.exe)
+    if (ext == ".sys") return "#00a896"; // Sea green (.sys)
+    if (ext == ".msi") return "#02c39a"; // Mint teal (.msi)
+    if (ext == ".bin") return "#f39c12"; // Amber orange (.bin)
+    if (ext == ".mkv" || ext == ".mp4" || ext == ".avi" || ext == ".mov" || ext == ".wmv") return "#ff5722"; // Bright Orange-Red (Video)
+    if (ext == ".db" || ext == ".sqlite" || ext == ".mdf" || ext == ".ldf") return "#27ae60"; // Forest emerald (.db)
+    if (ext == ".lib" || ext == ".a" || ext == ".obj" || ext == ".o") return "#9b51e0"; // Royal purple (.lib)
+    if (ext == ".js" || ext == ".ts" || ext == ".jsx" || ext == ".tsx") return "#f1c40f"; // Vivid yellow (.js)
+    if (ext == ".cat") return "#e74c3c"; // Crimson red (.cat)
+    if (ext == ".pak" || ext == ".zip" || ext == ".rar" || ext == ".7z" || ext == ".tar" || ext == ".gz") return "#ff9800"; // Deep Tangerine (Archives)
+    if (ext == ".json" || ext == ".xml" || ext == ".yaml" || ext == ".yml") return "#e91e63"; // Hot magenta (.json/data)
+    if (ext == ".so" || ext == ".dylib") return "#00b4d8"; // Cyan (.so)
+    if (ext == ".iso" || ext == ".vhd" || ext == ".vhdx" || ext == ".img") return "#9c27b0"; // Vivid Violet (Disk images)
+    if (ext == ".mp3" || ext == ".wav" || ext == ".flac" || ext == ".aac" || ext == ".ogg") return "#e84393"; // Pink rose (Audio)
+    if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" || ext == ".gif" || ext == ".bmp") return "#fbc531"; // Sunny gold (Images)
+    if (ext == ".pdf") return "#d63031"; // Acrobat red (.pdf)
+    if (ext == ".docx" || ext == ".doc" || ext == ".xlsx" || ext == ".pptx" || ext == ".txt") return "#2980b9"; // Steel Blue (Documents)
+    if (ext == ".cpp" || ext == ".c" || ext == ".h" || ext == ".hpp" || ext == ".rs" || ext == ".py" || ext == ".go") return "#2ed573"; // Bright lime green (Code)
+    if (ext == ".crypt14" || ext == ".crypt15" || ext == ".enc" || ext == ".bak") return "#a55eea"; // Lavender purple
+
+    // Deterministic golden-ratio HSV generator for any arbitrary extension
+    uint32_t hash = 2166136261u;
+    for (char c : ext) {
+        hash = (hash ^ static_cast<uint8_t>(tolower(c))) * 16777619u;
+    }
+    // Fixed high-contrast palettes (32 distinct, vibrant hues)
+    static const char* const DYNAMIC_PALETTE[] = {
+        "#ff4757", "#2ed573", "#1e90ff", "#ffa502", "#a55eea",
+        "#3742fa", "#70a1ff", "#7bed9f", "#eccc68", "#ff7f50",
+        "#26de81", "#4b7bec", "#fed330", "#a55eea", "#fc5c65",
+        "#fd9644", "#45aaf2", "#2bcbba", "#a55eea", "#778ca3",
+        "#eb3b5a", "#fa8231", "#20bf6b", "#0fb9b1", "#3867d6",
+        "#8854d0", "#d1d8e0", "#e17055", "#00cec9", "#6c5ce7",
+        "#fdcb6e", "#00b894"
+    };
+    return DYNAMIC_PALETTE[hash % 32];
 }
 
 } // namespace TreeMCP

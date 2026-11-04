@@ -331,7 +331,29 @@ Security::DeleteResult Security::safe_recycle_item(const std::string& raw_path) 
     if (ret == 0 && !file_op.fAnyOperationsAborted) {
         res.success = true;
     } else {
-        res.error_message = "Windows Shell error code: " + std::to_string(ret);
+        // If standard shell operation failed (e.g. admin-owned file or ACL permission),
+        // try direct removal if running with administrative rights
+        DWORD attr = GetFileAttributesW(double_null_path.data());
+        if (attr != INVALID_FILE_ATTRIBUTES) {
+            if (attr & FILE_ATTRIBUTE_READONLY) {
+                SetFileAttributesW(double_null_path.data(), attr & ~FILE_ATTRIBUTE_READONLY);
+            }
+            if (attr & FILE_ATTRIBUTE_DIRECTORY) {
+                if (RemoveDirectoryW(double_null_path.data())) {
+                    res.success = true;
+                } else {
+                    res.error_message = "Windows Shell error: " + std::to_string(ret) + " (Win32 Err: " + std::to_string(GetLastError()) + ")";
+                }
+            } else {
+                if (DeleteFileW(double_null_path.data())) {
+                    res.success = true;
+                } else {
+                    res.error_message = "Windows Shell error: " + std::to_string(ret) + " (Win32 Err: " + std::to_string(GetLastError()) + ")";
+                }
+            }
+        } else {
+            res.error_message = "Windows Shell error code: " + std::to_string(ret);
+        }
     }
 #else
     // FreeDesktop.org Trash Specification

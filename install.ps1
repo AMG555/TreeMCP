@@ -1,9 +1,9 @@
 # TreeMCP One-Click Installer for Windows
 $ErrorActionPreference = 'Stop'
 
-# Stop any running TreeMCP process before updating
+# 1. Stop all previous/active TreeMCP processes before updating
 Get-Process -Name "TreeMCP" -ErrorAction SilentlyContinue | Stop-Process -Force
-Start-Sleep -Milliseconds 200
+Start-Sleep -Milliseconds 300
 
 $installDir = "$env:LOCALAPPDATA\TreeMCP"
 if (-not (Test-Path $installDir)) {
@@ -11,6 +11,26 @@ if (-not (Test-Path $installDir)) {
 }
 
 $exePath = Join-Path $installDir "TreeMCP.exe"
+
+# 2. Clean up any stale or leftover binaries from old updates
+Get-ChildItem -Path $installDir -Filter "TreeMCP*.exe" -File -ErrorAction SilentlyContinue | ForEach-Object {
+    if ($_.FullName -ne $exePath) {
+        Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
+    }
+}
+Get-ChildItem -Path $installDir -Filter "*.bak" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+
+# 3. Clean up any duplicate installations in alternate locations
+$legacyPaths = @(
+    "$env:ProgramFiles\TreeMCP",
+    "${env:ProgramFiles(x86)}\TreeMCP",
+    "$env:APPDATA\TreeMCP"
+)
+foreach ($lp in $legacyPaths) {
+    if (Test-Path $lp) {
+        Remove-Item -Path $lp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
 
 if (Test-Path "$PSScriptRoot\TreeMCP.exe") {
     Write-Host "==> Installing latest local TreeMCP build..." -ForegroundColor Cyan
@@ -22,9 +42,33 @@ if (Test-Path "$PSScriptRoot\TreeMCP.exe") {
 }
 Unblock-File -Path $exePath -ErrorAction SilentlyContinue
 
-Write-Host "==> TreeMCP binary installed at: $exePath" -ForegroundColor Green
+Write-Host "==> TreeMCP canonical binary verified at: $exePath" -ForegroundColor Green
 
-# Create Start Menu Application Shortcut
+# 4. Standard Windows Control Panel "Add/Remove Programs" Registration (prevents multi-version clutter)
+try {
+    $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TreeMCP"
+    if (-not (Test-Path $regPath)) {
+        New-Item -Path $regPath -Force | Out-Null
+    }
+    Set-ItemProperty -Path $regPath -Name "DisplayName" -Value "TreeMCP - Disk Space Analyzer & MCP Server" -Force
+    Set-ItemProperty -Path $regPath -Name "DisplayVersion" -Value "1.1.0" -Force
+    Set-ItemProperty -Path $regPath -Name "Publisher" -Value "TreeMCP Project" -Force
+    Set-ItemProperty -Path $regPath -Name "InstallLocation" -Value $installDir -Force
+    Set-ItemProperty -Path $regPath -Name "DisplayIcon" -Value "$exePath,0" -Force
+    Set-ItemProperty -Path $regPath -Name "UninstallString" -Value "powershell.exe -ExecutionPolicy Bypass -Command `"& '$installDir\uninstall.ps1'`"" -Force
+    Set-ItemProperty -Path $regPath -Name "NoModify" -Value 1 -Type DWord -Force
+    Set-ItemProperty -Path $regPath -Name "NoRepair" -Value 1 -Type DWord -Force
+
+    # Copy self-contained uninstaller into installation directory
+    if (Test-Path "$PSScriptRoot\uninstall.ps1") {
+        Copy-Item -Path "$PSScriptRoot\uninstall.ps1" -Destination (Join-Path $installDir "uninstall.ps1") -Force
+    }
+    Write-Host "==> Registered single authoritative version in Windows Apps & Features" -ForegroundColor Green
+} catch {
+    # Non-fatal if registry fails
+}
+
+# 5. Authoritative Start Menu Application Shortcut
 try {
     $shortcutPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\TreeMCP.lnk"
     $wsh = New-Object -ComObject WScript.Shell

@@ -25,46 +25,101 @@ class TreemapRenderer {
     this.initEvents();
   }
 
-  // Canonical Desktop Disk Analyzer Color Matrix
+  // Exact WizTree Color Matrix
   static EXT_COLORS = {
-    // Media / Video - Royal Blue
-    '.mp4': '#1e88e5', '.mkv': '#1976d2', '.avi': '#1565c0', '.mov': '#1e88e5',
-    '.wmv': '#1565c0', '.flv': '#1976d2', '.webm': '#2196f3', '.m4v': '#1e88e5',
-    // Archives & Compressed - Vivid Amber / Gold
-    '.zip': '#f59e0b', '.rar': '#d97706', '.7z': '#b45309', '.tar': '#f59e0b',
-    '.gz': '#d97706', '.bz2': '#b45309', '.xz': '#d97706', '.tgz': '#f59e0b',
-    // Executables & Binaries - Crimson Red
-    '.exe': '#ef4444', '.dll': '#dc2626', '.sys': '#b91c1c', '.bin': '#ef4444',
-    '.msi': '#dc2626', '.drv': '#991b1b', '.ocx': '#b91c1c', '.com': '#ef4444',
-    // Disk Images & Virtual Machines - Violet / Purple
-    '.iso': '#8b5cf6', '.vhd': '#7c3aed', '.vhdx': '#6d28d9', '.img': '#8b5cf6',
-    '.vmdk': '#7c3aed', '.qcow2': '#6d28d9', '.wim': '#8b5cf6',
-    // Audio - Fresh Green
-    '.mp3': '#10b981', '.wav': '#059669', '.flac': '#047857', '.m4a': '#10b981',
-    '.aac': '#059669', '.ogg': '#047857', '.wma': '#10b981',
-    // Images & Graphics - Bright Cyan
-    '.jpg': '#06b6d4', '.jpeg': '#0891b2', '.png': '#0e7490', '.webp': '#06b6d4',
-    '.gif': '#0891b2', '.bmp': '#0e7490', '.svg': '#06b6d4', '.ico': '#0891b2',
-    '.psd': '#0e7490', '.raw': '#06b6d4', '.tiff': '#0891b2',
-    // Documents & Text - Vibrant Orange
-    '.pdf': '#f97316', '.doc': '#ea580c', '.docx': '#c2410c', '.xls': '#f97316',
-    '.xlsx': '#ea580c', '.ppt': '#c2410c', '.pptx': '#f97316', '.txt': '#ea580c',
-    '.csv': '#f97316', '.rtf': '#ea580c', '.md': '#c2410c',
-    // Code & Scripts - Emerald / Lime
-    '.js': '#84cc16', '.ts': '#65a30d', '.py': '#84cc16', '.cpp': '#65a30d',
-    '.c': '#4d7c0f', '.h': '#84cc16', '.hpp': '#65a30d', '.rs': '#84cc16',
-    '.go': '#65a30d', '.java': '#4d7c0f', '.cs': '#84cc16', '.json': '#65a30d',
-    '.html': '#84cc16', '.css': '#65a30d', '.xml': '#4d7c0f', '.yaml': '#84cc16',
-    // Databases - Rose
-    '.db': '#ec4899', '.sqlite': '#db2777', '.sql': '#be185d', '.mdf': '#ec4899',
-    // Fallbacks
-    'default': '#64748b',
-    'folder': '#27272a'
+    '.dll': '#8dc63f',
+    '[no extension]': '#4a90e2',
+    '': '#4a90e2',
+    '.exe': '#0099ff',
+    '.sys': '#00a896',
+    '.msi': '#02c39a',
+    '.bin': '#f39c12',
+    '.mkv': '#ff5722',
+    '.mp4': '#ff5722',
+    '.avi': '#ff5722',
+    '.mov': '#ff5722',
+    '.wmv': '#ff5722',
+    '.db': '#27ae60',
+    '.sqlite': '#27ae60',
+    '.mdf': '#27ae60',
+    '.ldf': '#27ae60',
+    '.lib': '#9b51e0',
+    '.a': '#9b51e0',
+    '.obj': '#9b51e0',
+    '.o': '#9b51e0',
+    '.js': '#f1c40f',
+    '.ts': '#f1c40f',
+    '.jsx': '#f1c40f',
+    '.tsx': '#f1c40f',
+    '.cat': '#e74c3c',
+    '.pak': '#ff9800',
+    '.zip': '#ff9800',
+    '.rar': '#ff9800',
+    '.7z': '#ff9800',
+    '.tar': '#ff9800',
+    '.gz': '#ff9800',
+    '.json': '#e91e63',
+    '.xml': '#e91e63',
+    '.yaml': '#e91e63',
+    '.yml': '#e91e63',
+    '.so': '#00b4d8',
+    '.dylib': '#00b4d8',
+    '.iso': '#9c27b0',
+    '.vhd': '#9c27b0',
+    '.vhdx': '#9c27b0',
+    '.img': '#9c27b0',
+    '.mp3': '#e84393',
+    '.wav': '#e84393',
+    '.flac': '#e84393',
+    '.aac': '#e84393',
+    '.ogg': '#e84393',
+    '.jpg': '#fbc531',
+    '.jpeg': '#fbc531',
+    '.png': '#fbc531',
+    '.webp': '#fbc531',
+    '.gif': '#fbc531',
+    '.bmp': '#fbc531',
+    '.pdf': '#d63031',
+    '.docx': '#2980b9',
+    '.doc': '#2980b9',
+    '.xlsx': '#2980b9',
+    '.pptx': '#2980b9',
+    '.txt': '#2980b9',
+    '.cpp': '#2ed573',
+    '.c': '#2ed573',
+    '.h': '#2ed573',
+    '.hpp': '#2ed573',
+    '.rs': '#2ed573',
+    '.py': '#2ed573',
+    '.go': '#2ed573',
+    '.crypt14': '#a55eea',
+    '.crypt15': '#a55eea',
+    '.bak': '#a55eea',
+    'folder': '#2c3e50'
   };
+
+  static DYNAMIC_PALETTE = [
+    '#ff4757', '#2ed573', '#1e90ff', '#ffa502', '#a55eea',
+    '#3742fa', '#70a1ff', '#7bed9f', '#eccc68', '#ff7f50',
+    '#26de81', '#4b7bec', '#fed330', '#a55eea', '#fc5c65',
+    '#fd9644', '#45aaf2', '#2bcbba', '#a55eea', '#778ca3',
+    '#eb3b5a', '#fa8231', '#20bf6b', '#0fb9b1', '#3867d6',
+    '#8854d0', '#d1d8e0', '#e17055', '#00cec9', '#6c5ce7',
+    '#fdcb6e', '#00b894'
+  ];
 
   getColorForExt(ext, isDir) {
     if (isDir) return TreemapRenderer.EXT_COLORS.folder;
-    return TreemapRenderer.EXT_COLORS[ext] || TreemapRenderer.EXT_COLORS.default;
+    const cleanExt = (ext || '').toLowerCase();
+    if (TreemapRenderer.EXT_COLORS[cleanExt]) {
+      return TreemapRenderer.EXT_COLORS[cleanExt];
+    }
+    // High-contrast golden ratio hash for unmapped extensions
+    let hash = 2166136261;
+    for (let i = 0; i < cleanExt.length; i++) {
+      hash = (hash ^ cleanExt.charCodeAt(i)) * 16777619;
+    }
+    return TreemapRenderer.DYNAMIC_PALETTE[Math.abs(hash) % TreemapRenderer.DYNAMIC_PALETTE.length];
   }
 
   extractExt(name) {
@@ -77,6 +132,17 @@ class TreemapRenderer {
     if (!tilesOrItems || tilesOrItems.length === 0) {
       this.items = [];
       this.tiles = [];
+      this.render();
+      return;
+    }
+
+    // Check if tiles have precomputed coordinates (hierarchical layout from backend)
+    const hasPrecomputed = tilesOrItems.length > 0 && typeof tilesOrItems[0].x === 'number' && typeof tilesOrItems[0].width === 'number';
+
+    if (hasPrecomputed) {
+      this.items = tilesOrItems;
+      this.tiles = this.scaleLayoutToCanvas(tilesOrItems);
+      this.renderOffscreen();
       this.render();
       return;
     }
@@ -97,6 +163,43 @@ class TreemapRenderer {
     this.computeLayout();
     this.renderOffscreen();
     this.render();
+  }
+
+  // Scale precomputed hierarchical layout to current canvas dimensions
+  scaleLayoutToCanvas(tiles) {
+    if (!tiles || tiles.length === 0 || !this.width || !this.height) return [];
+
+    let maxX = 0;
+    let maxY = 0;
+    for (let i = 0; i < tiles.length; i++) {
+      const t = tiles[i];
+      if (t.x + t.width > maxX) maxX = t.x + t.width;
+      if (t.y + t.height > maxY) maxY = t.y + t.height;
+    }
+
+    if (maxX <= 0) maxX = 1000;
+    if (maxY <= 0) maxY = 600;
+
+    const scaleX = this.width / maxX;
+    const scaleY = this.height / maxY;
+
+    return tiles.map(t => {
+      const ext = t.extension || this.extractExt(t.name);
+      return {
+        node_idx: t.node_idx,
+        name: t.name,
+        full_path: t.full_path,
+        size: t.size,
+        is_dir: t.is_dir,
+        depth: t.depth || 0,
+        extension: ext,
+        color: t.color || this.getColorForExt(ext, t.is_dir),
+        x: t.x * scaleX,
+        y: t.y * scaleY,
+        width: t.width * scaleX,
+        height: t.height * scaleY
+      };
+    });
   }
 
   setHighlightedExtension(ext) {
@@ -131,7 +234,11 @@ class TreemapRenderer {
     this.width = w;
     this.height = h;
 
-    this.computeLayout();
+    if (this.items.length > 0 && typeof this.items[0].x === 'number') {
+      this.tiles = this.scaleLayoutToCanvas(this.items);
+    } else {
+      this.computeLayout();
+    }
     this.renderOffscreen();
     this.render();
   }
@@ -326,13 +433,19 @@ class TreemapRenderer {
 
   hitTest(px, py) {
     if (!this.tiles) return null;
-    for (let i = this.tiles.length - 1; i >= 0; i--) {
+    let best = null;
+    let maxDepth = -1;
+    for (let i = 0; i < this.tiles.length; i++) {
       const t = this.tiles[i];
       if (px >= t.x && px < (t.x + t.width) && py >= t.y && py < (t.y + t.height)) {
-        return t;
+        const d = (t.depth || 0) + (t.is_dir ? 0 : 10);
+        if (d >= maxDepth) {
+          maxDepth = d;
+          best = t;
+        }
       }
     }
-    return null;
+    return best;
   }
 
   // Pre-rasterize all 500+ tiles with van Wijk 3D cushion lighting onto offscreen canvas
@@ -354,61 +467,76 @@ class TreemapRenderer {
       return;
     }
 
-    const len = this.tiles.length;
-    for (let i = 0; i < len; i++) {
-      const tile = this.tiles[i];
+    // Separate files (leaves) and directories
+    // In WizTree: leaf files render 100% of the visual space with cushion shading.
+    // Directories are just grouping outlines and top text badges.
+    const fileTiles = [];
+    const dirTiles = [];
+
+    for (let i = 0; i < this.tiles.length; i++) {
+      const t = this.tiles[i];
+      if (t.is_dir) {
+        dirTiles.push(t);
+      } else {
+        fileTiles.push(t);
+      }
+    }
+
+    // 1. First pass: Draw all leaf file cushions edge-to-edge
+    for (let i = 0; i < fileTiles.length; i++) {
+      const tile = fileTiles[i];
       const x = Math.round(tile.x);
       const y = Math.round(tile.y);
       const w = Math.round(tile.width);
       const h = Math.round(tile.height);
 
-      if (w <= 1 || h <= 1) continue;
+      if (w <= 0 || h <= 0) continue;
 
       const baseColor = tile.color || '#64748b';
 
-      // 1. Base Fill
+      // Base solid color
       ctx.fillStyle = baseColor;
       ctx.fillRect(x, y, w, h);
 
-      // 2. van Wijk 3D Parabolic Curved Cushion Lighting
-      if (w > 4 && h > 4) {
-        const rad = Math.max(w, h) * 0.9;
-        const cx = x + (w * 0.32);
-        const cy = y + (h * 0.32);
+      // van Wijk 3D Parabolic Curved Cushion Lighting
+      if (w > 2 && h > 2) {
+        const rad = Math.max(w, h) * 0.85;
+        const cx = x + (w * 0.35);
+        const cy = y + (h * 0.35);
 
         const radial = ctx.createRadialGradient(cx, cy, 1, cx, cy, rad);
         radial.addColorStop(0, 'rgba(255, 255, 255, 0.42)');
-        radial.addColorStop(0.35, 'rgba(255, 255, 255, 0.10)');
-        radial.addColorStop(0.72, 'rgba(0, 0, 0, 0.25)');
-        radial.addColorStop(1, 'rgba(0, 0, 0, 0.65)');
+        radial.addColorStop(0.3, 'rgba(255, 255, 255, 0.10)');
+        radial.addColorStop(0.68, 'rgba(0, 0, 0, 0.16)');
+        radial.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
 
         ctx.fillStyle = radial;
         ctx.fillRect(x, y, w, h);
 
-        // Top/Left Inner Highlight Bevel (1px)
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+        // Top/Left 1px specular bevel
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.30)';
         ctx.fillRect(x, y, w, 1);
         ctx.fillRect(x, y, 1, h);
 
-        // Bottom/Right Inner Shadow Bevel (1px)
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.60)';
+        // Bottom/Right 1px shadow bevel
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
         ctx.fillRect(x, y + h - 1, w, 1);
         ctx.fillRect(x + w - 1, y, 1, h);
       }
 
-      // 3. Crisp Dark Tile Gap Border (1px)
-      ctx.strokeStyle = 'rgba(15, 15, 18, 0.96)';
+      // Crisp 1px dark separation between adjacent files
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
       ctx.lineWidth = 1;
-      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
 
-      // 4. Desktop Monospace Typography Label (only if tile is large enough)
-      if (w > 48 && h > 22) {
+      // File label if large enough
+      if (w > 48 && h > 20) {
         ctx.save();
         ctx.beginPath();
         ctx.rect(x + 2, y + 2, Math.max(0, w - 4), Math.max(0, h - 4));
         ctx.clip();
 
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
         ctx.shadowBlur = 3;
         ctx.shadowOffsetX = 1;
         ctx.shadowOffsetY = 1;
@@ -419,12 +547,45 @@ class TreemapRenderer {
         ctx.textBaseline = 'top';
         ctx.fillText(tile.name, x + 4, y + 4);
 
-        if (h > 36) {
+        if (h > 34) {
           ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
           ctx.font = '500 9.5px "Consolas", monospace';
-          ctx.fillText(this.formatSize(tile.size), x + 4, y + 18);
+          ctx.fillText(this.formatSize(tile.size), x + 4, y + 17);
         }
+        ctx.restore();
+      }
+    }
 
+    // 2. Second pass: Draw folder grouping outlines (WizTree style: clean 1px borders, no dark gray boxes)
+    // Sort directories so outer parent borders draw first, inner child directory borders draw on top
+    dirTiles.sort((a, b) => (a.depth || 0) - (b.depth || 0));
+
+    for (let i = 0; i < dirTiles.length; i++) {
+      const tile = dirTiles[i];
+      const x = Math.round(tile.x);
+      const y = Math.round(tile.y);
+      const w = Math.round(tile.width);
+      const h = Math.round(tile.height);
+
+      if (w <= 4 || h <= 4) continue;
+
+      // Clean WizTree-like folder boundary line (no solid dark fill!)
+      ctx.strokeStyle = tile.depth <= 1 ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.20)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
+
+      // Overlaid folder title (only on prominent directories, e.g. depth 1 or 2, or large width)
+      if (tile.depth <= 3 && w > 80 && h > 30) {
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '600 10.5px "Segoe UI", system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        const label = tile.name + '\\ (' + this.formatSize(tile.size) + ')';
+        ctx.fillText(label, x + 5, y + 4);
         ctx.restore();
       }
     }

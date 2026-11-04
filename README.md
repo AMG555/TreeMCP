@@ -23,6 +23,15 @@
   <b>Instant NTFS MFT & POSIX kernel scanning</b>, <b>interactive squarified cushion treemaps</b>, and <b>96% token-thrifty MCP connectivity</b> for Claude, Antigravity, Cursor, and Windsurf.
 </p>
 
+> [!TIP]
+> **🤖 Why Connect TreeMCP to AI Coding Agents?**
+> Standard AI coding agents (Claude, Cursor, Windsurf, Antigravity) cannot see physical disk layout, cluster allocations, or hidden disk hogs. Without TreeMCP, agents either hallucinate file sizes, choke context windows with 50,000+ token directory dumps, or dangerously delete entire trees based on false assumptions.
+> 
+> With **TreeMCP MCP Server**:
+> * **Zero-Assumption Truth**: Agents query exact on-disk byte sizes and allocations in <100 tokens via `treemcp_top_hogs`, `treemcp_dir_tree`, and `treemcp_search`.
+> * **Safe Non-Destructive Cleanup**: Agents safely clean bloated build caches, stale node_modules, temp dumps, and orphan folders via `treemcp_clean`. All deletions route safely to the **Windows Recycle Bin / Linux Trash** with hardcoded kernel blacklists preventing OS damage.
+> * **Elevated Admin Intelligence**: When run as Administrator, TreeMCP passes elevated permissions through MCP so agents can diagnose and clean locked installer caches (`SquirrelMachineInstalls`, `McInstTemp`, etc.) without shell crashes.
+
 [⬇️ Download .EXE](#-direct-download--instant-setup) • [Quickstart](#-quickstart) • [Test Suite](#-automated-test-suite) • [Max Lightweight](#-max-lightweight-engineering) • [Security Policy](SECURITY.md) • [Contributing](CONTRIBUTING.md)
 
 ---

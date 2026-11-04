@@ -26,6 +26,7 @@ g++ -O3 -std=c++17 ^
     -Wl,--nxcompat ^
     -Wl,--dynamicbase ^
     -Wl,--high-entropy-va ^
+    -mwindows ^
     src/main.cpp ^
     src/core/file_tree.cpp ^
     src/core/fast_scanner.cpp ^
