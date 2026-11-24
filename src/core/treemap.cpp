@@ -12,7 +12,7 @@ std::vector<TreemapTile> TreemapEngine::compute_layout(
     uint64_t min_size_threshold
 ) {
     std::vector<TreemapTile> tiles;
-    if (root_idx == INVALID_INDEX || width <= 1.0 || height <= 1.0) return tiles;
+    if (root_idx == INVALID_INDEX || width <= 4.0 || height <= 4.0) return tiles;
 
     const auto& root_node = tree.get_node(root_idx);
     if (root_node.size == 0) return tiles;
@@ -71,7 +71,7 @@ std::vector<TreemapTile> TreemapEngine::compute_layout(
         }
     }
 
-    // Aggregate small loose items into a single composite tile matching WizTree's [28 Files in C:\]
+    // Aggregate small loose items into a single composite tile [N Files in Folder]
     if (small_files_size > 0) {
         Item agg;
         agg.node_idx = root_idx;
@@ -162,7 +162,7 @@ void TreemapEngine::layout_row(
             tile.size = it.size;
             tile.is_dir = false;
             tile.extension = "[no extension]";
-            tile.color = "#546e7a"; // WizTree composite slate
+            tile.color = "#546e7a"; // Composite items slate
             out_tiles.push_back(tile);
         } else {
             const auto& node = tree.get_node(it.node_idx);
@@ -175,8 +175,8 @@ void TreemapEngine::layout_row(
             tile.color = tile.is_dir ? "#2c3e50" : FileTree::get_color_for_ext(tile.extension);
 
             bool has_sub = false;
-            // Recurse into subdirectories if large enough
-            if (tile.is_dir && current_depth < max_depth && item_w > 3.0 && item_h > 3.0) {
+            // Recurse into subdirectories only if box is large enough to display meaningful children
+            if (tile.is_dir && current_depth < max_depth && item_w >= 14.0 && item_h >= 14.0) {
                 auto sub_tiles = compute_layout(
                     tree, it.node_idx,
                     item_x, item_y,

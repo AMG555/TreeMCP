@@ -349,7 +349,9 @@ void handle_http_client(socket_t client_sock) {
                 ScanStats stats;
                 g_scanner.scan(path_param, g_tree, stats);
 
-                auto tiles = TreemapEngine::compute_layout(g_tree, g_tree.root_idx(), 0, 0, 1000, 600, 14, 32 * 1024);
+                uint64_t total_drive_bytes = g_tree.get_node(g_tree.root_idx()).size;
+                uint64_t adaptive_thresh = std::max<uint64_t>(256 * 1024, total_drive_bytes / 20000);
+                auto tiles = TreemapEngine::compute_layout(g_tree, g_tree.root_idx(), 0, 0, 1000, 600, 5, adaptive_thresh);
                 auto exts = g_tree.get_extension_stats(g_tree.root_idx(), 25);
 
                 std::stringstream ss;
@@ -385,7 +387,9 @@ void handle_http_client(socket_t client_sock) {
             if (!nidx_str.empty()) {
                 node_idx = std::stoul(nidx_str);
             }
-            auto tiles = TreemapEngine::compute_layout(g_tree, node_idx, 0, 0, 1000, 600, 14, 32 * 1024);
+            uint64_t total_node_bytes = g_tree.get_node(node_idx).size;
+            uint64_t adaptive_thresh = std::max<uint64_t>(64 * 1024, total_node_bytes / 20000);
+            auto tiles = TreemapEngine::compute_layout(g_tree, node_idx, 0, 0, 1000, 600, 5, adaptive_thresh);
             body = "{\"tiles\":" + serialize_tiles(tiles) + "}";
         } else if (clean_uri.find("/api/top-hogs") == 0) {
             content_type = "application/json";

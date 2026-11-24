@@ -409,7 +409,7 @@ html, body {
 }
 
 .split-top {
-  height: 48%;
+  height: 44%;
   background-color: var(--bg-window);
 }
 
@@ -722,7 +722,7 @@ html, body {
   white-space: nowrap;
 }
 
-/* Percentage Bar Cell - WizTree Progress Bar */
+/* Percentage Bar Cell - Inset Progress Bar */
 .pct-cell-wrap {
   display: flex;
   align-items: center;
@@ -1396,7 +1396,7 @@ kbd {
 }
 
 /* =========================================================================
-   8. WIZTREE STYLE IN-APP UPDATE BANNER & TREEMAP HOVER BAR
+   8. IN-APP UPDATE BANNER & TREEMAP HOVER BAR
    ========================================================================= */
 
 .update-banner {

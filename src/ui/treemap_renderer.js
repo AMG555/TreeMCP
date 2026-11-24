@@ -25,83 +25,83 @@ class TreemapRenderer {
     this.initEvents();
   }
 
-  // Exact WizTree Color Matrix (1:1 with user device WizTree v4.3.2)
+  // Extension Color Matrix
   static EXT_COLORS = {
-    '.dll': '#76b82a', // Fresh Lime Green (.dll) - WizTree Row 1
-    '.exe': '#0099ff', // Electric Azure (.exe) - WizTree Row 2
-    '[no extension]': '#9e9e9e', // Slate Grey - WizTree Row 3
-    '': '#9e9e9e',
-    '.sys': '#9c27b0', // Royal Purple / Violet (.sys) - WizTree Row 4
-    '.msi': '#00bcd4', // Cyan Teal (.msi) - WizTree Row 5
-    '.bin': '#00838f', // Dark Teal (.bin) - WizTree Row 6
-    '.mkv': '#c2185b', // Vivid Deep Pink / Magenta - WizTree Row 7
-    '.db': '#f39c12',  // Golden Amber (.db) - WizTree Row 8
-    '.sqlite': '#f39c12',
-    '.mdf': '#f39c12',
-    '.ldf': '#f39c12',
-    '.lib': '#e67e22', // Tangerine Orange (.lib) - WizTree Row 9
-    '.a': '#e67e22',
-    '.obj': '#e67e22',
-    '.o': '#e67e22',
-    '.js': '#f1c40f',  // Sun Gold (.js) - WizTree Row 10
-    '.ts': '#f1c40f',
-    '.jsx': '#f1c40f',
-    '.tsx': '#f1c40f',
-    '.pak': '#d35400', // Rust Orange (.pak) - WizTree Row 11
-    '.json': '#e74c3c', // Crimson Red - WizTree Row 12
-    '.xml': '#e74c3c',
-    '.yaml': '#e74c3c',
-    '.yml': '#e74c3c',
-    '.so': '#827717',  // Olive Green (.so) - WizTree Row 13
-    '.dylib': '#827717',
-    '.dat': '#7b1fa2', // Deep Violet (.dat) - WizTree Row 14
-    '.zip': '#ff9800', // Orange - WizTree Row 15
-    '.rar': '#ff9800',
-    '.7z': '#ff9800',
-    '.tar': '#ff9800',
-    '.gz': '#ff9800',
-    '.mp4': '#8e44ad', // Violet Purple - WizTree Row 16
-    '.avi': '#8e44ad',
-    '.mov': '#8e44ad',
-    '.wmv': '#8e44ad',
-    '.log': '#78909c', // Blue Grey - WizTree Row 17
-    '.txt': '#78909c',
-    '.go': '#00e5ff',  // Sky Cyan (.go) - WizTree Row 18
-    '.wim': '#5c6bc0', // Indigo (.wim) - WizTree Row 19
-    '.png': '#26a69a', // Teal
-    '.jpg': '#26a69a',
-    '.jpeg': '#26a69a',
-    '.webp': '#26a69a',
-    '.gif': '#26a69a',
-    '.bmp': '#26a69a',
-    '.vmdk': '#ab47bc', // Vivid Violet (Disk images & VMs)
-    '.vdi': '#ab47bc',
-    '.vmem': '#ab47bc',
-    '.vhdx': '#ab47bc',
-    '.vhd': '#ab47bc',
-    '.iso': '#ab47bc',
-    '.img': '#ab47bc',
-    '.ova': '#ab47bc',
-    '.ovf': '#ab47bc',
-    '.qcow2': '#ab47bc',
-    '.mp3': '#e84393', // Pink rose (Audio)
-    '.wav': '#e84393',
-    '.flac': '#e84393',
-    '.aac': '#e84393',
-    '.ogg': '#e84393',
-    '.pdf': '#d63031', // Acrobat red (.pdf)
-    '.docx': '#2980b9', // Steel Blue (Documents)
-    '.doc': '#2980b9',
-    '.xlsx': '#2980b9',
-    '.pptx': '#2980b9',
-    '.cpp': '#2ed573', // Code
-    '.c': '#2ed573',
-    '.h': '#2ed573',
-    '.hpp': '#2ed573',
-    '.rs': '#2ed573',
-    '.py': '#2ed573',
-    '.cat': '#e74c3c',
-    'folder': '#546e7a'
+    '.dll': '#b359b6', // Orchid / Medium Purple (.dll)
+    '.exe': '#0078d7', // Electric / Windows Azure (.exe)
+    '[no extension]': '#d4a017', // Warm Golden Amber / Ochre
+    '': '#d4a017',
+    '.sys': '#00c853', // Vivid Emerald / Lime Green (.sys)
+    '.msi': '#00b4d8', // Sky Cyan (.msi)
+    '.bin': '#d97706', // Golden Caramel / Amber (.bin)
+    '.mkv': '#dc2626', // Crimson Red (.mkv)
+    '.db': '#3b82f6',  // Royal / Sea Blue (.db)
+    '.sqlite': '#3b82f6',
+    '.mdf': '#3b82f6',
+    '.ldf': '#3b82f6',
+    '.lib': '#65a30d', // Olive Green (.lib)
+    '.a': '#65a30d',
+    '.obj': '#65a30d',
+    '.o': '#65a30d',
+    '.js': '#ea580c',  // Vivid Tangerine / Orange (.js)
+    '.ts': '#ea580c',
+    '.jsx': '#ea580c',
+    '.tsx': '#ea580c',
+    '.pak': '#854d0e', // Russet Brown (.pak)
+    '.json': '#ec4899', // Pink Rose (.json)
+    '.xml': '#ec4899',
+    '.yaml': '#ec4899',
+    '.yml': '#ec4899',
+    '.so': '#4338ca',  // Deep Indigo (.so)
+    '.dylib': '#4338ca',
+    '.dat': '#0d9488', // Deep Teal (.dat)
+    '.zip': '#4d7c0f', // Forest Olive
+    '.rar': '#4d7c0f',
+    '.7z': '#4d7c0f',
+    '.tar': '#4d7c0f',
+    '.gz': '#4d7c0f',
+    '.mp4': '#c026d3', // Vivid Magenta
+    '.avi': '#c026d3',
+    '.mov': '#c026d3',
+    '.wmv': '#c026d3',
+    '.log': '#ca8a04', // Sand / Khaki
+    '.txt': '#ca8a04',
+    '.go': '#06b6d4',  // Teal Cyan (.go)
+    '.wim': '#64748b', // Slate Steel (.wim)
+    '.png': '#f59e0b', // Warm Orange
+    '.jpg': '#f59e0b',
+    '.jpeg': '#f59e0b',
+    '.webp': '#f59e0b',
+    '.gif': '#f59e0b',
+    '.bmp': '#f59e0b',
+    '.vmdk': '#a855f7', // Vivid Violet (Disk images & VMs)
+    '.vdi': '#a855f7',
+    '.vmem': '#a855f7',
+    '.vhdx': '#a855f7',
+    '.vhd': '#a855f7',
+    '.iso': '#a855f7',
+    '.img': '#a855f7',
+    '.ova': '#a855f7',
+    '.ovf': '#a855f7',
+    '.qcow2': '#a855f7',
+    '.mp3': '#e11d48', // Pink rose (Audio)
+    '.wav': '#e11d48',
+    '.flac': '#e11d48',
+    '.aac': '#e11d48',
+    '.ogg': '#e11d48',
+    '.pdf': '#ef4444', // Acrobat red (.pdf)
+    '.docx': '#2563eb', // Steel Blue (Documents)
+    '.doc': '#2563eb',
+    '.xlsx': '#2563eb',
+    '.pptx': '#2563eb',
+    '.cpp': '#d97706', // Amber Code
+    '.c': '#d97706',
+    '.h': '#d97706',
+    '.hpp': '#d97706',
+    '.rs': '#d97706',
+    '.py': '#d97706',
+    '.cat': '#f43f5e',
+    'folder': '#374151'
   };
 
   static DYNAMIC_PALETTE = [
@@ -527,8 +527,8 @@ class TreemapRenderer {
       ctx.lineWidth = 1;
       ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
 
-      // Leaf file label if tile has sufficient size
-      if (w > 38 && h > 16) {
+      // Leaf file label ONLY if tile has sufficient size to prevent visual congestion
+      if (w >= 100 && h >= 34) {
         ctx.save();
         ctx.beginPath();
         ctx.rect(x + 2, y + 2, Math.max(0, w - 4), Math.max(0, h - 4));
@@ -540,22 +540,23 @@ class TreemapRenderer {
         ctx.shadowOffsetY = 1;
 
         ctx.fillStyle = '#ffffff';
-        ctx.font = '600 10px "Segoe UI", system-ui, sans-serif';
+        ctx.font = '600 10.5px "Segoe UI", system-ui, sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
-        ctx.fillText(tile.name, x + 3, y + 3);
 
-        if (h > 28) {
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-          ctx.font = '500 9px "Consolas", monospace';
-          ctx.fillText(this.formatSize(tile.size), x + 3, y + 14);
+        if (h >= 46) {
+          ctx.fillText(tile.name, x + 4, y + 4);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+          ctx.font = '500 9.5px "Consolas", monospace';
+          ctx.fillText(this.formatSize(tile.size), x + 4, y + 17);
+        } else {
+          ctx.fillText(tile.name + ' (' + this.formatSize(tile.size) + ')', x + 4, y + 4);
         }
         ctx.restore();
       }
     }
 
-    // PASS 2: Folder Framing Outlines (WizTree style: crisp 1px borders, NO dark solid boxes)
-    // Sort directories depth ascending so outer parents draw first, inner children draw on top
+    // PASS 2: Folder Framing Outlines (crisp 1px borders, only for major levels)
     dirTiles.sort((a, b) => (a.depth || 0) - (b.depth || 0));
 
     for (let i = 0; i < dirTiles.length; i++) {
@@ -565,22 +566,17 @@ class TreemapRenderer {
       const w = Math.round(tile.width);
       const h = Math.round(tile.height);
 
-      if (w <= 4 || h <= 4) continue;
+      if (tile.depth > 3 || w < 30 || h < 30) continue;
 
-      ctx.strokeStyle = (tile.depth <= 1) ? 'rgba(255, 255, 255, 0.55)' :
-                        (tile.depth === 2) ? 'rgba(255, 255, 255, 0.35)' :
-                        'rgba(255, 255, 255, 0.20)';
+      ctx.strokeStyle = (tile.depth <= 1) ? 'rgba(255, 255, 255, 0.45)' :
+                        (tile.depth === 2) ? 'rgba(255, 255, 255, 0.25)' :
+                        'rgba(255, 255, 255, 0.15)';
       ctx.lineWidth = 1;
       ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
     }
 
-    // PASS 3: Stacked Directory Hierarchy Titles (The WizTree Hierarchy Stack)
-    // In WizTree, top-left of each directory cluster displays stacked folder titles:
-    // [C:] OS (157.8 GB)
-    // Users\ (60.7 GB)
-    // AMAL GEORGE\ (59.8 GB)
-    // AppData\ (48.5 GB)
-    // Local\ (37.9 GB)
+    // PASS 3: Stacked Directory Hierarchy Titles
+    // Only primary root branch gets stacked at top-left, plus major section headers
     const drawnLabels = [];
     for (let i = 0; i < dirTiles.length; i++) {
       const tile = dirTiles[i];
@@ -589,12 +585,16 @@ class TreemapRenderer {
       const w = Math.round(tile.width);
       const h = Math.round(tile.height);
 
-      if (tile.depth <= 5 && w > 60 && h > 22) {
+      const isTopLeftOrigin = (x <= 35 && y <= 35 && tile.depth <= 5);
+      const isMajorSection = (tile.depth <= 2 && w >= 110 && h >= 45);
+
+      if (isTopLeftOrigin || isMajorSection) {
         let stackOffset = 0;
-        for (const dl of drawnLabels) {
-          // If this directory's top-left is near an already labeled parent, stack underneath it
-          if (Math.abs(dl.x - x) < 28 && Math.abs((dl.y + dl.stack) - y) < 32) {
-            stackOffset = dl.stack + 15;
+        if (isTopLeftOrigin) {
+          for (const dl of drawnLabels) {
+            if (dl.isTopLeft) {
+              stackOffset = Math.max(stackOffset, dl.stack + 15);
+            }
           }
         }
 
@@ -609,11 +609,11 @@ class TreemapRenderer {
           ctx.textAlign = 'left';
           ctx.textBaseline = 'top';
 
-          const label = tile.name + '\\ (' + this.formatSize(tile.size) + ')';
+          const label = tile.name + ' (' + this.formatSize(tile.size) + ')';
           ctx.fillText(label, x + 4, y + 3 + stackOffset);
           ctx.restore();
 
-          drawnLabels.push({ x: x, y: y, stack: stackOffset });
+          drawnLabels.push({ x: x, y: y, stack: stackOffset, isTopLeft: isTopLeftOrigin });
         }
       }
     }

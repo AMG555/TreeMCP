@@ -103,7 +103,7 @@ function setupMenuBar() {
   bind('m-reset-panels', () => {
     const upperPane = document.getElementById('pane-upper');
     const viewport = document.getElementById('viewport');
-    upperPane.style.height = `${Math.floor(viewport.clientHeight * 0.5)}px`;
+    upperPane.style.height = `${Math.floor(viewport.clientHeight * 0.44)}px`;
     treemapRenderer.resize();
   });
 
@@ -1040,7 +1040,7 @@ function getFileTypeDescription(ext) {
   return map[e] || (e ? `${e.slice(1).toUpperCase()} File` : 'File');
 }
 
-// 10. File Extension Breakdown Table (WizTree Matrix Layout)
+// 10. File Extension Breakdown Table
 function renderExtensionsTable(extensions, totalBytes) {
   const tbody = document.getElementById('ext-table-body');
   tbody.innerHTML = '';
