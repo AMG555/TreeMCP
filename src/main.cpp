@@ -80,6 +80,7 @@ std::string serialize_tiles(const std::vector<TreemapTile>& tiles) {
            << ",\"x\":" << t.x << ",\"y\":" << t.y
            << ",\"width\":" << t.width << ",\"height\":" << t.height
            << ",\"color\":\"" << t.color << "\""
+           << ",\"extension\":\"" << t.extension << "\""
            << ",\"is_dir\":" << (t.is_dir ? "true" : "false")
            << ",\"depth\":" << t.depth
            << "}";
@@ -348,7 +349,7 @@ void handle_http_client(socket_t client_sock) {
                 ScanStats stats;
                 g_scanner.scan(path_param, g_tree, stats);
 
-                auto tiles = TreemapEngine::compute_layout(g_tree, g_tree.root_idx(), 0, 0, 1000, 600, 10, 10 * 1024);
+                auto tiles = TreemapEngine::compute_layout(g_tree, g_tree.root_idx(), 0, 0, 1000, 600, 14, 32 * 1024);
                 auto exts = g_tree.get_extension_stats(g_tree.root_idx(), 25);
 
                 std::stringstream ss;
@@ -384,7 +385,7 @@ void handle_http_client(socket_t client_sock) {
             if (!nidx_str.empty()) {
                 node_idx = std::stoul(nidx_str);
             }
-            auto tiles = TreemapEngine::compute_layout(g_tree, node_idx, 0, 0, 1000, 600, 10, 10 * 1024);
+            auto tiles = TreemapEngine::compute_layout(g_tree, node_idx, 0, 0, 1000, 600, 14, 32 * 1024);
             body = "{\"tiles\":" + serialize_tiles(tiles) + "}";
         } else if (clean_uri.find("/api/top-hogs") == 0) {
             content_type = "application/json";
@@ -754,7 +755,7 @@ int main(int argc, char* argv[]) {
 
     g_session_token = Security::generate_secure_token();
     const char* temp_env = getenv("TEMP");
-    std::string token_path = (temp_env ? std::string(temp_env) : ".") + "/treemcp_token.txt";
+    std::string token_path = (temp_env ? std::string(temp_env) : ".") + (g_test_mode ? "/treemcp_test_token.txt" : "/treemcp_token.txt");
     std::ofstream tf(token_path);
     if (tf.is_open()) {
         tf << g_session_token;

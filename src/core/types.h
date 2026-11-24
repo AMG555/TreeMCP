@@ -65,6 +65,7 @@ struct TreemapTile {
     double width;
     double height;
     std::string color;
+    std::string extension;
     bool is_dir;
     int depth;
 };

@@ -1012,6 +1012,13 @@ function getFileTypeDescription(ext) {
     '.pak': 'PAK File',
     '.json': 'JSON Source File',
     '.so': 'SO File',
+    '.dat': 'DAT File',
+    '.log': 'Text Document',
+    '.go': 'GO File',
+    '.wim': 'WIM File',
+    '.vmdk': 'VMware Virtual Disk File',
+    '.vdi': 'VirtualBox Virtual Disk',
+    '.vmem': 'VMware Virtual Memory File',
     '.zip': 'Compressed (zipped) Folder',
     '.rar': 'WinRAR Archive',
     '.7z': '7-Zip Archive',
@@ -1135,7 +1142,7 @@ function handleTileHover(tile, clientX, clientY) {
   }
 }
 
-const CURRENT_VERSION = 'v1.1.2';
+const CURRENT_VERSION = 'v1.1.3';
 
 function compareVersions(v1, v2) {
   const clean = v => (v || '').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);

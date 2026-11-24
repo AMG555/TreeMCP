@@ -450,29 +450,35 @@ std::string FileTree::format_size(uint64_t bytes) {
 }
 
 std::string FileTree::get_color_for_ext(const std::string& ext) {
-    // WizTree Canonical Extension Color Palette
-    if (ext == ".dll") return "#8dc63f"; // Lime green (.dll)
-    if (ext == "[no extension]" || ext.empty()) return "#4a90e2"; // Soft slate blue
-    if (ext == ".exe") return "#0099ff"; // Electric azure (.exe)
-    if (ext == ".sys") return "#00a896"; // Sea green (.sys)
-    if (ext == ".msi") return "#02c39a"; // Mint teal (.msi)
-    if (ext == ".bin") return "#f39c12"; // Amber orange (.bin)
-    if (ext == ".mkv" || ext == ".mp4" || ext == ".avi" || ext == ".mov" || ext == ".wmv") return "#ff5722"; // Bright Orange-Red (Video)
-    if (ext == ".db" || ext == ".sqlite" || ext == ".mdf" || ext == ".ldf") return "#27ae60"; // Forest emerald (.db)
-    if (ext == ".lib" || ext == ".a" || ext == ".obj" || ext == ".o") return "#9b51e0"; // Royal purple (.lib)
-    if (ext == ".js" || ext == ".ts" || ext == ".jsx" || ext == ".tsx") return "#f1c40f"; // Vivid yellow (.js)
-    if (ext == ".cat") return "#e74c3c"; // Crimson red (.cat)
-    if (ext == ".pak" || ext == ".zip" || ext == ".rar" || ext == ".7z" || ext == ".tar" || ext == ".gz") return "#ff9800"; // Deep Tangerine (Archives)
-    if (ext == ".json" || ext == ".xml" || ext == ".yaml" || ext == ".yml") return "#e91e63"; // Hot magenta (.json/data)
-    if (ext == ".so" || ext == ".dylib") return "#00b4d8"; // Cyan (.so)
+    // WizTree Canonical Extension Color Matrix (matches user WizTree v4.3.2)
+    if (ext == ".dll") return "#76b82a"; // Fresh Lime green (.dll) - WizTree Row 1
+    if (ext == ".exe") return "#0099ff"; // Electric Azure (.exe) - WizTree Row 2
+    if (ext == "[no extension]" || ext.empty()) return "#9e9e9e"; // Slate Grey - WizTree Row 3
+    if (ext == ".sys") return "#9c27b0"; // Royal Purple / Violet (.sys) - WizTree Row 4
+    if (ext == ".msi") return "#00bcd4"; // Cyan Teal (.msi) - WizTree Row 5
+    if (ext == ".bin") return "#00838f"; // Dark Teal (.bin) - WizTree Row 6
+    if (ext == ".mkv") return "#c2185b"; // Vivid Deep Pink / Magenta - WizTree Row 7
+    if (ext == ".db" || ext == ".sqlite" || ext == ".mdf" || ext == ".ldf") return "#f39c12"; // Golden Amber (.db) - WizTree Row 8
+    if (ext == ".lib" || ext == ".a" || ext == ".obj" || ext == ".o") return "#e67e22"; // Tangerine Orange (.lib) - WizTree Row 9
+    if (ext == ".js" || ext == ".ts" || ext == ".jsx" || ext == ".tsx") return "#f1c40f"; // Sun Gold (.js) - WizTree Row 10
+    if (ext == ".pak") return "#d35400"; // Rust Orange (.pak) - WizTree Row 11
+    if (ext == ".json" || ext == ".xml" || ext == ".yaml" || ext == ".yml") return "#e74c3c"; // Crimson Red - WizTree Row 12
+    if (ext == ".so" || ext == ".dylib") return "#827717"; // Olive Green (.so) - WizTree Row 13
+    if (ext == ".dat") return "#7b1fa2"; // Deep Violet (.dat) - WizTree Row 14
+    if (ext == ".zip" || ext == ".rar" || ext == ".7z" || ext == ".tar" || ext == ".gz") return "#ff9800"; // Orange - WizTree Row 15
+    if (ext == ".mp4" || ext == ".avi" || ext == ".mov" || ext == ".wmv") return "#8e44ad"; // Violet Purple - WizTree Row 16
+    if (ext == ".log" || ext == ".txt") return "#78909c"; // Blue Grey - WizTree Row 17
+    if (ext == ".go") return "#00e5ff"; // Sky Cyan (.go) - WizTree Row 18
+    if (ext == ".wim") return "#5c6bc0"; // Indigo (.wim) - WizTree Row 19
+    if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".webp" || ext == ".gif" || ext == ".bmp") return "#26a69a"; // Teal
     if (ext == ".iso" || ext == ".vhd" || ext == ".vhdx" || ext == ".img" ||
-        ext == ".vmdk" || ext == ".vdi" || ext == ".vmem" || ext == ".ova" || ext == ".ovf" || ext == ".qcow2") return "#9c27b0"; // Vivid Violet (Disk images & VMs)
+        ext == ".vmdk" || ext == ".vdi" || ext == ".vmem" || ext == ".ova" || ext == ".ovf" || ext == ".qcow2") return "#ab47bc"; // Vivid Violet (Disk images & VMs)
     if (ext == ".mp3" || ext == ".wav" || ext == ".flac" || ext == ".aac" || ext == ".ogg") return "#e84393"; // Pink rose (Audio)
-    if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" || ext == ".gif" || ext == ".bmp") return "#fbc531"; // Sunny gold (Images)
     if (ext == ".pdf") return "#d63031"; // Acrobat red (.pdf)
-    if (ext == ".docx" || ext == ".doc" || ext == ".xlsx" || ext == ".pptx" || ext == ".txt") return "#2980b9"; // Steel Blue (Documents)
-    if (ext == ".cpp" || ext == ".c" || ext == ".h" || ext == ".hpp" || ext == ".rs" || ext == ".py" || ext == ".go") return "#2ed573"; // Bright lime green (Code)
-    if (ext == ".crypt14" || ext == ".crypt15" || ext == ".enc" || ext == ".bak") return "#a55eea"; // Lavender purple
+    if (ext == ".docx" || ext == ".doc" || ext == ".xlsx" || ext == ".pptx") return "#2980b9"; // Steel Blue (Documents)
+    if (ext == ".cpp" || ext == ".c" || ext == ".h" || ext == ".hpp" || ext == ".rs" || ext == ".py") return "#2ed573"; // Code
+    if (ext == ".cat") return "#e74c3c";
+    if (ext == ".crypt14" || ext == ".crypt15" || ext == ".enc" || ext == ".bak") return "#a55eea";
 
     // Deterministic golden-ratio HSV generator for any arbitrary extension
     uint32_t hash = 2166136261u;

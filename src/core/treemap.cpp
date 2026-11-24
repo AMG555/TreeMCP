@@ -26,7 +26,8 @@ std::vector<TreemapTile> TreemapEngine::compute_layout(
         t.full_path = tree.get_full_path(root_idx);
         t.size = root_node.size;
         t.x = x; t.y = y; t.width = width; t.height = height;
-        t.color = root_node.is_directory() ? "#34495e" : FileTree::get_color_for_ext(tree.get_extension(root_idx));
+        t.extension = root_node.is_directory() ? "" : tree.get_extension(root_idx);
+        t.color = root_node.is_directory() ? "#546e7a" : FileTree::get_color_for_ext(t.extension);
         t.is_dir = root_node.is_directory();
         t.depth = 0;
         tiles.push_back(t);
@@ -34,23 +35,63 @@ std::vector<TreemapTile> TreemapEngine::compute_layout(
     }
 
     std::vector<Item> items;
-    items.reserve(children.size());
+    items.reserve(children.size() + 1);
+
+    uint64_t small_files_size = 0;
+    uint32_t small_files_count = 0;
 
     for (uint32_t c : children) {
         const auto& cnode = tree.get_node(c);
-        if (cnode.size >= min_size_threshold) {
-            items.push_back({c, cnode.size, 0.0});
+        if (cnode.size == 0) continue;
+
+        if (cnode.is_directory()) {
+            if (cnode.size >= min_size_threshold) {
+                Item it;
+                it.node_idx = c;
+                it.size = cnode.size;
+                it.area = 0.0;
+                it.is_aggregate = false;
+                items.push_back(it);
+            } else {
+                small_files_size += cnode.size;
+                small_files_count++;
+            }
+        } else {
+            if (cnode.size >= min_size_threshold) {
+                Item it;
+                it.node_idx = c;
+                it.size = cnode.size;
+                it.area = 0.0;
+                it.is_aggregate = false;
+                items.push_back(it);
+            } else {
+                small_files_size += cnode.size;
+                small_files_count++;
+            }
         }
+    }
+
+    // Aggregate small loose items into a single composite tile matching WizTree's [28 Files in C:\]
+    if (small_files_size > 0) {
+        Item agg;
+        agg.node_idx = root_idx;
+        agg.size = small_files_size;
+        agg.area = 0.0;
+        agg.is_aggregate = true;
+        agg.small_count = small_files_count;
+        items.push_back(agg);
     }
 
     if (items.empty()) return tiles;
 
+    // Sort descending by size for optimal squarified aspect ratios
+    std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) {
+        return a.size > b.size;
+    });
+
     // Cap items per level to prevent subpixel rendering thrashing
-    if (items.size() > 2500) {
-        std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) {
-            return a.size > b.size;
-        });
-        items.resize(2500);
+    if (items.size() > 1000) {
+        items.resize(1000);
     }
 
     uint64_t items_total_size = 0;
@@ -63,8 +104,6 @@ std::vector<TreemapTile> TreemapEngine::compute_layout(
     for (auto& it : items) {
         it.area = (static_cast<double>(it.size) / items_total_size) * total_area;
     }
-
-    if (items.empty()) return tiles;
 
     std::vector<Item> row;
     squarify(tree, items, row, x, y, width, height, 1, max_depth, min_size_threshold, tiles);
@@ -108,38 +147,57 @@ void TreemapEngine::layout_row(
         double item_w = vertical ? thickness : item_len;
         double item_h = vertical ? item_len : thickness;
 
-        const auto& node = tree.get_node(it.node_idx);
-
         TreemapTile tile;
-        tile.node_idx = it.node_idx;
-        tile.name = tree.get_name(it.node_idx);
-        tile.full_path = tree.get_full_path(it.node_idx);
-        tile.size = node.size;
         tile.x = item_x;
         tile.y = item_y;
         tile.width = item_w;
         tile.height = item_h;
-        tile.is_dir = node.is_directory();
         tile.depth = current_depth;
-        tile.color = tile.is_dir ? "#2c3e50" : FileTree::get_color_for_ext(tree.get_extension(it.node_idx));
 
-        bool has_sub = false;
-        // Recurse into subdirectories
-        if (tile.is_dir && current_depth < max_depth && item_w > 2.0 && item_h > 2.0) {
-            auto sub_tiles = compute_layout(
-                tree, it.node_idx,
-                item_x, item_y,
-                item_w, item_h,
-                max_depth, min_size_threshold
-            );
-            if (!sub_tiles.empty()) {
-                has_sub = true;
-                out_tiles.insert(out_tiles.end(), sub_tiles.begin(), sub_tiles.end());
+        if (it.is_aggregate) {
+            std::string parent_name = (it.node_idx != INVALID_INDEX) ? tree.get_name(it.node_idx) : "Folder";
+            tile.node_idx = it.node_idx;
+            tile.name = "[" + std::to_string(it.small_count) + " Files in " + parent_name + "]";
+            tile.full_path = (it.node_idx != INVALID_INDEX) ? tree.get_full_path(it.node_idx) : "";
+            tile.size = it.size;
+            tile.is_dir = false;
+            tile.extension = "[no extension]";
+            tile.color = "#546e7a"; // WizTree composite slate
+            out_tiles.push_back(tile);
+        } else {
+            const auto& node = tree.get_node(it.node_idx);
+            tile.node_idx = it.node_idx;
+            tile.name = tree.get_name(it.node_idx);
+            tile.full_path = tree.get_full_path(it.node_idx);
+            tile.size = node.size;
+            tile.is_dir = node.is_directory();
+            tile.extension = tile.is_dir ? "" : tree.get_extension(it.node_idx);
+            tile.color = tile.is_dir ? "#2c3e50" : FileTree::get_color_for_ext(tile.extension);
+
+            bool has_sub = false;
+            // Recurse into subdirectories if large enough
+            if (tile.is_dir && current_depth < max_depth && item_w > 3.0 && item_h > 3.0) {
+                auto sub_tiles = compute_layout(
+                    tree, it.node_idx,
+                    item_x, item_y,
+                    item_w, item_h,
+                    max_depth, min_size_threshold
+                );
+                if (!sub_tiles.empty()) {
+                    has_sub = true;
+                    out_tiles.insert(out_tiles.end(), sub_tiles.begin(), sub_tiles.end());
+                }
             }
-        }
 
-        // Emit directory outline only if it has children or is a container
-        out_tiles.push_back(tile);
+            // If a directory had no sub-tiles (e.g. depth limit or tiny children),
+            // treat it as a leaf tile so it gets a cushion and no area is blank!
+            if (tile.is_dir && !has_sub) {
+                tile.is_dir = false;
+                tile.color = "#546e7a";
+            }
+
+            out_tiles.push_back(tile);
+        }
 
         curr_pos += item_len;
     }
@@ -211,4 +269,3 @@ const TreemapTile* TreemapEngine::hit_test(const std::vector<TreemapTile>& tiles
 }
 
 } // namespace TreeMCP
-

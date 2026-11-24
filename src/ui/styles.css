@@ -722,42 +722,49 @@ html, body {
   white-space: nowrap;
 }
 
-/* Percentage Bar Cell */
+/* Percentage Bar Cell - WizTree Progress Bar */
 .pct-cell-wrap {
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
 }
 
 .pct-track {
   flex: 1;
-  height: 6px;
-  background-color: #27272a;
+  height: 12px;
+  background-color: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 2px;
   overflow: hidden;
+  position: relative;
 }
 
 .pct-fill {
   height: 100%;
-  background-color: var(--accent-blue);
-  border-radius: 2px;
+  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+  border-radius: 1px;
 }
 
 .pct-val {
-  width: 38px;
+  width: 42px;
   text-align: right;
   font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-muted);
+  font-size: 10.5px;
+  color: var(--text-main);
   flex-shrink: 0;
+  font-weight: 500;
 }
 
 .ext-swatch {
   display: inline-block;
-  width: 9px;
-  height: 9px;
-  border-radius: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
   margin-right: 6px;
+  vertical-align: middle;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+}
   vertical-align: middle;
   border: 1px solid rgba(0, 0, 0, 0.4);
 }

@@ -24,9 +24,11 @@ public:
 
 private:
     struct Item {
-        uint32_t node_idx;
-        uint64_t size;
-        double area;
+        uint32_t node_idx = INVALID_INDEX;
+        uint64_t size = 0;
+        double area = 0.0;
+        bool is_aggregate = false;
+        uint32_t small_count = 0;
     };
 
     static void squarify(
