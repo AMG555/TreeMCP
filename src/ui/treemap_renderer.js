@@ -479,16 +479,36 @@ class TreemapRenderer {
 
     // Separate files (leaves) and directories
     // In WizTree: leaf files render 100% of the visual space with cushion shading.
-    // Directories are just grouping outlines and top text badges.
+    // Directories are grouping outlines and stacked text badges.
     const fileTiles = [];
     const dirTiles = [];
 
+    // Collect leaf files first
+    for (let i = 0; i < this.tiles.length; i++) {
+      const t = this.tiles[i];
+      if (!t.is_dir) {
+        fileTiles.push(t);
+      }
+    }
+
+    // For directories: if any directory contains no child tiles, treat it as a leaf tile
     for (let i = 0; i < this.tiles.length; i++) {
       const t = this.tiles[i];
       if (t.is_dir) {
-        dirTiles.push(t);
-      } else {
-        fileTiles.push(t);
+        let hasChild = false;
+        for (let j = 0; j < fileTiles.length; j++) {
+          const f = fileTiles[j];
+          if (f.x >= t.x - 0.5 && (f.x + f.width) <= (t.x + t.width + 0.5) &&
+              f.y >= t.y - 0.5 && (f.y + f.height) <= (t.y + t.height + 0.5)) {
+            hasChild = true;
+            break;
+          }
+        }
+        if (hasChild) {
+          dirTiles.push(t);
+        } else {
+          fileTiles.push(t);
+        }
       }
     }
 
@@ -511,26 +531,26 @@ class TreemapRenderer {
       // van Wijk 3D Parabolic Curved Cushion Lighting
       if (w > 2 && h > 2) {
         // High-fidelity WizTree cushion curvature
-        const cx = x + (w * 0.38);
-        const cy = y + (h * 0.38);
-        const rad = Math.max(w, h) * 0.95;
+        const cx = x + (w * 0.35);
+        const cy = y + (h * 0.35);
+        const rad = Math.max(w, h) * 1.1;
 
-        const radial = ctx.createRadialGradient(cx, cy, 2, cx, cy, rad);
-        radial.addColorStop(0, 'rgba(255, 255, 255, 0.48)');
-        radial.addColorStop(0.25, 'rgba(255, 255, 255, 0.15)');
-        radial.addColorStop(0.60, 'rgba(0, 0, 0, 0.12)');
-        radial.addColorStop(1, 'rgba(0, 0, 0, 0.62)');
+        const radial = ctx.createRadialGradient(cx, cy, 1, cx, cy, rad);
+        radial.addColorStop(0, 'rgba(255, 255, 255, 0.58)');
+        radial.addColorStop(0.22, 'rgba(255, 255, 255, 0.20)');
+        radial.addColorStop(0.55, 'rgba(0, 0, 0, 0.10)');
+        radial.addColorStop(1, 'rgba(0, 0, 0, 0.72)');
 
         ctx.fillStyle = radial;
         ctx.fillRect(x, y, w, h);
 
         // Specular Top/Left 1px Inner Bevel
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.42)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
         ctx.fillRect(x, y, w, 1);
         ctx.fillRect(x, y, 1, h);
 
         // Shadow Bottom/Right 1px Inner Bevel
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.58)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
         ctx.fillRect(x, y + h - 1, w, 1);
         ctx.fillRect(x + w - 1, y, 1, h);
       }
@@ -580,26 +600,46 @@ class TreemapRenderer {
 
       if (w <= 4 || h <= 4) continue;
 
-      // Clean WizTree-like folder boundary line (no solid dark fill!)
-      ctx.strokeStyle = tile.depth <= 1 ? 'rgba(255, 255, 255, 0.55)' : 'rgba(255, 255, 255, 0.28)';
+      // Clean WizTree-like folder boundary line
+      ctx.strokeStyle = tile.depth <= 1 ? 'rgba(255, 255, 255, 0.60)' : 'rgba(255, 255, 255, 0.32)';
       ctx.lineWidth = 1;
       ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
+    }
 
-      // Overlaid folder title (only on prominent directories, e.g. depth 1 or 2, or large width)
-      if (tile.depth <= 3 && w > 70 && h > 24) {
-        ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
-        ctx.shadowBlur = 4;
-        ctx.shadowOffsetX = 1;
-        ctx.shadowOffsetY = 1;
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '700 10.5px "Segoe UI", system-ui, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
+    // 3. Third pass: Overlaid stacked folder titles (WizTree style: stacked hierarchy badges at top-left)
+    const drawnLabels = [];
+    for (let i = 0; i < dirTiles.length; i++) {
+      const tile = dirTiles[i];
+      const x = Math.round(tile.x);
+      const y = Math.round(tile.y);
+      const w = Math.round(tile.width);
+      const h = Math.round(tile.height);
 
-        const label = tile.name + '\\ (' + this.formatSize(tile.size) + ')';
-        ctx.fillText(label, x + 4, y + 3);
-        ctx.restore();
+      if (tile.depth <= 4 && w > 65 && h > 22) {
+        let stackOffset = 0;
+        for (const dl of drawnLabels) {
+          if (Math.abs(dl.x - x) < 24 && Math.abs((dl.y + dl.stack) - y) < 28) {
+            stackOffset = dl.stack + 15;
+          }
+        }
+
+        if (y + stackOffset + 14 < y + h) {
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetX = 1;
+          ctx.shadowOffsetY = 1;
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '700 10.5px "Segoe UI", system-ui, sans-serif';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+
+          const label = tile.name + '\\ (' + this.formatSize(tile.size) + ')';
+          ctx.fillText(label, x + 4, y + 3 + stackOffset);
+          ctx.restore();
+
+          drawnLabels.push({ x: x, y: y, stack: stackOffset });
+        }
       }
     }
   }

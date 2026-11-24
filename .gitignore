@@ -21,4 +21,5 @@ Desktop.ini
 *.log
 scratch/
 tmp/
+.playwright-mcp/
 

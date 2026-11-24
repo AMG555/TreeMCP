@@ -63,6 +63,8 @@
       <div class="menu-item" id="menu-help">
         <span class="menu-label">Help</span>
         <div class="menu-dropdown">
+          <div class="menu-entry" id="m-help-update"><span class="m-text">Check for Updates...</span></div>
+          <div class="menu-divider"></div>
           <div class="menu-entry" id="m-help-github"><span class="m-text">GitHub Project Page</span></div>
           <div class="menu-entry" id="m-help-mcp-spec"><span class="m-text">Model Context Protocol Reference</span></div>
           <div class="menu-divider"></div>
@@ -74,9 +76,22 @@
       <div class="menubar-brand">
         <img src="logo.svg" alt="" width="14" height="14" class="brand-glyph">
         <span class="brand-text">TreeMCP</span>
-        <span class="brand-ver">v1.1.0</span>
+        <span class="brand-ver">v1.1.2</span>
       </div>
     </nav>
+
+    <!-- WizTree Style In-App Update Banner -->
+    <div id="update-banner" class="update-banner" style="display: none;">
+      <div class="ub-content">
+        <span class="ub-icon">ℹ</span>
+        <span class="ub-text">An update is available (<span id="ub-version">v1.1.2</span>). Click 'Update Now' to automatically download and install.</span>
+      </div>
+      <div class="ub-actions">
+        <button id="btn-update-now" class="ub-btn ub-btn-primary">Update Now</button>
+        <button id="btn-update-view" class="ub-btn ub-btn-secondary">View Release</button>
+        <button id="btn-update-dismiss" class="ub-btn ub-btn-close" title="Dismiss">✕</button>
+      </div>
+    </div>
 
     <!-- 2. Desktop Toolbar / Ribbon Strip -->
     <header class="desktop-toolbar">
@@ -431,6 +446,7 @@
 
         <div class="canvas-viewport" id="canvas-viewport">
           <canvas id="treemap-canvas"></canvas>
+          <div class="treemap-hover-bar" id="treemap-hover-path">Double-click tile to drill down • Right-click for options</div>
         </div>
       </section>
 

@@ -15,8 +15,10 @@
 namespace TreeMCP {
 
 struct MftExtent {
+    uint64_t vcn;
     uint64_t lcn;
     uint64_t cluster_count;
+    bool is_sparse;
 };
 
 struct ParsedMftItem {
@@ -28,6 +30,60 @@ struct ParsedMftItem {
     uint32_t attributes;
     std::wstring name;
 };
+
+static void apply_record_fixups(uint8_t* rec, size_t record_size) {
+    if (record_size < 1024) return;
+    uint16_t usa_offset = *reinterpret_cast<uint16_t*>(rec + 4);
+    uint16_t usa_count = *reinterpret_cast<uint16_t*>(rec + 6);
+    if (usa_count < 2 || usa_offset + (usa_count * 2) > record_size) return;
+
+    uint16_t* usa = reinterpret_cast<uint16_t*>(rec + usa_offset);
+    uint16_t usn = usa[0];
+
+    for (size_t s = 1; s < usa_count && (s * 512) <= record_size; ++s) {
+        uint16_t* sector_end = reinterpret_cast<uint16_t*>(rec + (s * 512) - 2);
+        if (*sector_end == usn) {
+            *sector_end = usa[s];
+        }
+    }
+}
+
+// Decode NTFS variable-length signed data run
+static bool parse_data_runs(const uint8_t* run_ptr, size_t max_bytes, uint64_t start_vcn, std::vector<MftExtent>& extents) {
+    size_t offset = 0;
+    int64_t prev_lcn = 0;
+    uint64_t curr_vcn = start_vcn;
+
+    while (offset < max_bytes && run_ptr[offset] != 0) {
+        uint8_t b = run_ptr[offset++];
+        uint8_t len_bytes = b & 0x0F;
+        uint8_t offset_bytes = (b >> 4) & 0x0F;
+
+        if (len_bytes == 0 || offset + len_bytes + offset_bytes > max_bytes) break;
+
+        uint64_t run_len = 0;
+        for (int i = 0; i < len_bytes; ++i) {
+            run_len |= (static_cast<uint64_t>(run_ptr[offset++]) << (i * 8));
+        }
+
+        if (offset_bytes == 0) {
+            extents.push_back({curr_vcn, 0, run_len, true});
+        } else {
+            int64_t lcn_offset = 0;
+            for (int i = 0; i < offset_bytes; ++i) {
+                lcn_offset |= (static_cast<int64_t>(run_ptr[offset++]) << (i * 8));
+            }
+            // Sign extend
+            if (lcn_offset & (1ULL << (offset_bytes * 8 - 1))) {
+                lcn_offset |= ~((1ULL << (offset_bytes * 8)) - 1);
+            }
+            prev_lcn += lcn_offset;
+            extents.push_back({curr_vcn, static_cast<uint64_t>(prev_lcn), run_len, false});
+        }
+        curr_vcn += run_len;
+    }
+    return !extents.empty();
+}
 
 MftReader::MftReader() {}
 
@@ -68,39 +124,6 @@ bool MftReader::has_admin_privileges() {
         FreeSid(admin_group);
     }
     return is_admin != FALSE;
-}
-
-// Decode NTFS variable-length signed data run
-static bool parse_data_runs(const uint8_t* run_ptr, size_t max_bytes, std::vector<MftExtent>& extents) {
-    size_t offset = 0;
-    int64_t prev_lcn = 0;
-
-    while (offset < max_bytes && run_ptr[offset] != 0) {
-        uint8_t b = run_ptr[offset++];
-        uint8_t len_bytes = b & 0x0F;
-        uint8_t offset_bytes = (b >> 4) & 0x0F;
-
-        if (len_bytes == 0 || offset + len_bytes + offset_bytes > max_bytes) break;
-
-        uint64_t run_len = 0;
-        for (int i = 0; i < len_bytes; ++i) {
-            run_len |= (static_cast<uint64_t>(run_ptr[offset++]) << (i * 8));
-        }
-
-        int64_t lcn_offset = 0;
-        if (offset_bytes > 0) {
-            for (int i = 0; i < offset_bytes; ++i) {
-                lcn_offset |= (static_cast<int64_t>(run_ptr[offset++]) << (i * 8));
-            }
-            // Sign extend
-            if (lcn_offset & (1ULL << (offset_bytes * 8 - 1))) {
-                lcn_offset |= ~((1ULL << (offset_bytes * 8)) - 1);
-            }
-            prev_lcn += lcn_offset;
-            extents.push_back({static_cast<uint64_t>(prev_lcn), run_len});
-        }
-    }
-    return !extents.empty();
 }
 
 bool MftReader::scan_volume(const std::string& drive_path, FileTree& tree, ScanStats& stats) {
@@ -171,66 +194,121 @@ bool MftReader::scan_volume(const std::string& drive_path, FileTree& tree, ScanS
         return false;
     }
 
-    // Parse attributes in Record 0 to find $DATA (0x80)
+    apply_record_fixups(rec0.data(), record_size);
+
     std::vector<MftExtent> extents;
-    uint16_t attr_offset = *reinterpret_cast<uint16_t*>(&rec0[20]);
+    std::vector<uint64_t> mft_extension_records;
 
-    while (attr_offset + 8 <= record_size) {
-        uint32_t attr_type = *reinterpret_cast<uint32_t*>(&rec0[attr_offset]);
-        uint32_t attr_len = *reinterpret_cast<uint32_t*>(&rec0[attr_offset + 4]);
-        if (attr_type == 0xFFFFFFFF || attr_len == 0 || attr_offset + attr_len > record_size) break;
+    auto parse_record_data_runs = [&](const uint8_t* rec_buf, size_t rec_len, bool check_attr_list) {
+        if (rec_len < 48 || std::memcmp(rec_buf, "FILE", 4) != 0) return;
+        uint16_t a_off = *reinterpret_cast<const uint16_t*>(rec_buf + 20);
 
-        if (attr_type == 0x80) { // $DATA
-            uint8_t non_res = rec0[attr_offset + 8];
-            if (non_res == 1) {
-                uint16_t run_offset = *reinterpret_cast<uint16_t*>(&rec0[attr_offset + 32]);
-                if (attr_offset + run_offset < record_size) {
-                    parse_data_runs(&rec0[attr_offset + run_offset], record_size - (attr_offset + run_offset), extents);
+        while (a_off + 8 <= rec_len) {
+            uint32_t atype = *reinterpret_cast<const uint32_t*>(rec_buf + a_off);
+            uint32_t alen = *reinterpret_cast<const uint32_t*>(rec_buf + a_off + 4);
+            if (atype == 0xFFFFFFFF || alen == 0 || a_off + alen > rec_len) break;
+
+            if (atype == 0x80) { // $DATA attribute
+                uint8_t non_res = rec_buf[a_off + 8];
+                if (non_res == 1 && a_off + 34 <= rec_len) {
+                    uint64_t start_vcn = *reinterpret_cast<const uint64_t*>(rec_buf + a_off + 16);
+                    uint16_t run_offset = *reinterpret_cast<const uint16_t*>(rec_buf + a_off + 32);
+                    if (a_off + run_offset < rec_len) {
+                        parse_data_runs(rec_buf + a_off + run_offset, rec_len - (a_off + run_offset), start_vcn, extents);
+                    }
+                }
+            } else if (atype == 0x20 && check_attr_list) { // $ATTRIBUTE_LIST attribute
+                uint8_t non_res = rec_buf[a_off + 8];
+                if (non_res == 0 && a_off + 24 <= rec_len) { // Resident attribute list
+                    uint32_t val_len = *reinterpret_cast<const uint32_t*>(rec_buf + a_off + 16);
+                    uint16_t val_offset = *reinterpret_cast<const uint16_t*>(rec_buf + a_off + 20);
+                    if (a_off + val_offset + val_len <= rec_len) {
+                        const uint8_t* al_ptr = rec_buf + a_off + val_offset;
+                        size_t al_pos = 0;
+                        while (al_pos + 26 <= val_len) {
+                            uint32_t entry_type = *reinterpret_cast<const uint32_t*>(al_ptr + al_pos);
+                            uint16_t entry_len = *reinterpret_cast<const uint16_t*>(al_ptr + al_pos + 4);
+                            if (entry_len == 0 || al_pos + entry_len > val_len) break;
+
+                            if (entry_type == 0x80) { // $DATA entry
+                                uint64_t mft_ref = *reinterpret_cast<const uint64_t*>(al_ptr + al_pos + 24) & 0x0000FFFFFFFFFFFFULL;
+                                if (mft_ref != 0 && std::find(mft_extension_records.begin(), mft_extension_records.end(), mft_ref) == mft_extension_records.end()) {
+                                    mft_extension_records.push_back(mft_ref);
+                                }
+                            }
+                            al_pos += entry_len;
+                        }
+                    }
                 }
             }
-            break;
+            a_off += alen;
         }
-        attr_offset += attr_len;
+    };
+
+    parse_record_data_runs(rec0.data(), record_size, true);
+
+    // If Record 0 has extension records via $ATTRIBUTE_LIST, read them from Extent 0
+    if (!extents.empty() && !mft_extension_records.empty()) {
+        uint64_t ext0_offset = extents[0].lcn * cluster_size;
+        std::vector<uint8_t> ext_rec(record_size);
+
+        for (uint64_t ext_frn : mft_extension_records) {
+            LARGE_INTEGER pos;
+            pos.QuadPart = ext0_offset + (ext_frn * record_size);
+            if (SetFilePointerEx(h, pos, NULL, FILE_BEGIN)) {
+                DWORD rd = 0;
+                if (ReadFile(h, ext_rec.data(), record_size, &rd, NULL) && rd == record_size) {
+                    apply_record_fixups(ext_rec.data(), record_size);
+                    parse_record_data_runs(ext_rec.data(), record_size, false);
+                }
+            }
+        }
     }
 
     if (extents.empty()) {
-        // Fallback: Use single extent from volume data
         uint64_t mft_clusters = (ntfs_data.MftValidDataLength.QuadPart + cluster_size - 1) / cluster_size;
-        extents.push_back({mft_lcn, mft_clusters});
+        extents.push_back({0, mft_lcn, mft_clusters, false});
     }
 
-    // Sequential MFT Chunk Streamer (reads in 2MB blocks)
+    std::sort(extents.begin(), extents.end(), [](const MftExtent& a, const MftExtent& b) {
+        return a.vcn < b.vcn;
+    });
+
     const size_t CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB aligned buffer
     std::vector<uint8_t> chunk_buf(CHUNK_SIZE);
     std::vector<ParsedMftItem> items;
-    items.reserve(524288);
+    items.reserve(1500000);
 
-    uint64_t current_rec_idx = 0;
+    uint32_t recs_per_cluster = cluster_size / record_size;
 
     for (const auto& ext : extents) {
+        if (ext.is_sparse) continue;
         uint64_t ext_bytes = ext.cluster_count * cluster_size;
         uint64_t ext_offset = ext.lcn * cluster_size;
+        uint64_t base_rec_idx = ext.vcn * recs_per_cluster;
 
         LARGE_INTEGER pos;
         pos.QuadPart = ext_offset;
         if (!SetFilePointerEx(h, pos, NULL, FILE_BEGIN)) continue;
 
         uint64_t bytes_left = ext_bytes;
+        uint64_t bytes_read_in_extent = 0;
+
         while (bytes_left > 0) {
             DWORD to_read = static_cast<DWORD>(std::min<uint64_t>(bytes_left, CHUNK_SIZE));
             DWORD read_now = 0;
             if (!ReadFile(h, chunk_buf.data(), to_read, &read_now, NULL) || read_now == 0) break;
 
             size_t recs_in_chunk = read_now / record_size;
-            for (size_t r = 0; r < recs_in_chunk; ++r, ++current_rec_idx) {
+            uint64_t chunk_start_rec = base_rec_idx + (bytes_read_in_extent / record_size);
+
+            for (size_t r = 0; r < recs_in_chunk; ++r) {
                 uint8_t* rec = &chunk_buf[r * record_size];
                 if (std::memcmp(rec, "FILE", 4) != 0) continue;
 
                 uint16_t flags = *reinterpret_cast<uint16_t*>(rec + 22);
                 if ((flags & 0x01) == 0) continue; // Deleted record
 
-                // Check base record reference at offset 32 (8 bytes)
-                // If base record is non-zero, this is an extension record! Its attributes belong to the base record.
                 uint64_t base_mft_ref = *reinterpret_cast<uint64_t*>(rec + 32) & 0x0000FFFFFFFFFFFFULL;
                 if (base_mft_ref != 0) {
                     continue; // Skip secondary extension record to avoid detached duplicate
@@ -238,16 +316,10 @@ bool MftReader::scan_volume(const std::string& drive_path, FileTree& tree, ScanS
 
                 bool is_dir = (flags & 0x02) != 0;
 
-                // Apply update sequence fixups
-                uint16_t usa_offset = *reinterpret_cast<uint16_t*>(rec + 4);
-                uint16_t usa_count = *reinterpret_cast<uint16_t*>(rec + 6);
-                if (usa_offset + (usa_count * 2) <= record_size && usa_count >= 3) {
-                    uint16_t* usa = reinterpret_cast<uint16_t*>(rec + usa_offset);
-                    uint16_t* sec1 = reinterpret_cast<uint16_t*>(rec + 510);
-                    uint16_t* sec2 = reinterpret_cast<uint16_t*>(rec + 1022);
-                    if (*sec1 == usa[0]) *sec1 = usa[1];
-                    if (*sec2 == usa[0]) *sec2 = usa[2];
-                }
+                apply_record_fixups(rec, record_size);
+
+                uint32_t header_rec_num = *reinterpret_cast<uint32_t*>(rec + 0x2C);
+                uint64_t frn = (header_rec_num != 0) ? header_rec_num : (chunk_start_rec + r);
 
                 // Parse Attributes
                 uint16_t a_off = *reinterpret_cast<uint16_t*>(rec + 20);
@@ -275,7 +347,7 @@ bool MftReader::scan_volume(const std::string& drive_path, FileTree& tree, ScanS
                                 uint32_t fa = *reinterpret_cast<uint32_t*>(fnd + 56);
 
                                 if (a_off + c_off + 66 + (nlen * 2) <= record_size) {
-                                    // Prefer Win32 / POSIX names over DOS 8.3 names
+                                    // Prefer Win32 (1) / Win32+DOS (3) / POSIX (0) over pure DOS 8.3 (2)
                                     if (best_name.empty() || ns == 1 || ns == 3 || (best_ns == 2 && ns != 2)) {
                                         best_name.assign(reinterpret_cast<wchar_t*>(fnd + 66), nlen);
                                         parent_frn = pfrn;
@@ -301,9 +373,9 @@ bool MftReader::scan_volume(const std::string& drive_path, FileTree& tree, ScanS
                     a_off += alen;
                 }
 
-                if (!best_name.empty() && current_rec_idx != 5) { // Skip record 5 (root itself)
+                if (!best_name.empty() && frn != 5) { // Skip record 5 (root itself)
                     items.push_back({
-                        current_rec_idx,
+                        frn,
                         parent_frn,
                         real_size,
                         alloc_size,
@@ -315,6 +387,7 @@ bool MftReader::scan_volume(const std::string& drive_path, FileTree& tree, ScanS
             }
 
             bytes_left -= read_now;
+            bytes_read_in_extent += read_now;
         }
     }
 
@@ -335,10 +408,10 @@ bool MftReader::scan_volume(const std::string& drive_path, FileTree& tree, ScanS
     tree.set_root_idx(root_node_idx);
 
     std::unordered_map<uint64_t, uint32_t> frn_to_node;
-    frn_to_node.reserve(items.size() * 2);
+    frn_to_node.reserve(items.size());
     frn_to_node[5] = root_node_idx; // Root folder FRN is 5
 
-    // First pass: add directory nodes
+    // Pass 1: add all directory nodes
     for (const auto& it : items) {
         if (it.is_dir) {
             uint32_t n_idx = tree.add_node_w(
@@ -348,27 +421,38 @@ bool MftReader::scan_volume(const std::string& drive_path, FileTree& tree, ScanS
         }
     }
 
-    // Second pass: link directories to parents and add files
+    // Pass 2: link all directory nodes to their parents
     for (const auto& it : items) {
-        uint32_t p_idx = root_node_idx;
-        auto p_it = frn_to_node.find(it.parent_frn);
-        if (p_it != frn_to_node.end()) {
-            p_idx = p_it->second;
-        }
-
         if (it.is_dir) {
-            uint32_t self_idx = frn_to_node[it.frn];
-            if (self_idx != INVALID_INDEX && self_idx != root_node_idx) {
-                // Link directory child
-                auto& self_node = tree.get_node_mut(self_idx);
-                self_node.parent_idx = p_idx;
+            auto self_it = frn_to_node.find(it.frn);
+            if (self_it == frn_to_node.end()) continue;
+            uint32_t self_idx = self_it->second;
+            if (self_idx == INVALID_INDEX || self_idx == root_node_idx) continue;
 
-                auto& parent_node = tree.get_node_mut(p_idx);
-                self_node.next_sibling = parent_node.first_child;
-                parent_node.first_child = self_idx;
+            uint32_t p_idx = root_node_idx;
+            auto p_it = frn_to_node.find(it.parent_frn);
+            if (p_it != frn_to_node.end()) {
+                p_idx = p_it->second;
             }
-        } else {
-            // Leaf file
+
+            auto& self_node = tree.get_node_mut(self_idx);
+            self_node.parent_idx = p_idx;
+
+            auto& parent_node = tree.get_node_mut(p_idx);
+            self_node.next_sibling = parent_node.first_child;
+            parent_node.first_child = self_idx;
+        }
+    }
+
+    // Pass 3: add all leaf files
+    for (const auto& it : items) {
+        if (!it.is_dir) {
+            uint32_t p_idx = root_node_idx;
+            auto p_it = frn_to_node.find(it.parent_frn);
+            if (p_it != frn_to_node.end()) {
+                p_idx = p_it->second;
+            }
+
             tree.add_node_w(
                 it.name.c_str(), it.size, it.alloc_size, p_idx, false, it.attributes
             );

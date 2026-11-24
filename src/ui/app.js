@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadDrives();
   checkAdminStatus();
   startMcpEventStream();
+  setTimeout(() => checkForUpdates(false), 2000);
 });
 
 // 1. Native Desktop Menu Bar Wiring
@@ -126,6 +127,9 @@ function setupMenuBar() {
     }
   });
 
+  bind('m-help-update', () => {
+    checkForUpdates(true);
+  });
   bind('m-help-github', () => {
     window.open('https://github.com/AMG555/TreeMCP', '_blank');
   });
@@ -1102,24 +1106,127 @@ function handleTileClick(tile, isDblClick) {
 
 function handleTileHover(tile, clientX, clientY) {
   const tooltip = document.getElementById('treemap-tooltip');
+  const hoverBar = document.getElementById('treemap-hover-path');
+
   if (!tile) {
-    tooltip.style.display = 'none';
+    if (tooltip) tooltip.style.display = 'none';
+    if (hoverBar) hoverBar.textContent = 'Double-click tile to drill down • Right-click for options';
     return;
   }
 
-  tooltip.style.display = 'block';
-  tooltip.style.left = `${Math.min(window.innerWidth - 370, clientX + 16)}px`;
-  tooltip.style.top = `${Math.min(window.innerHeight - 130, clientY + 16)}px`;
+  if (hoverBar) {
+    hoverBar.textContent = `${tile.full_path} (${treemapRenderer.formatSize(tile.size)})`;
+  }
 
-  tooltip.innerHTML = `
-    <div class="tt-name">${tile.name}</div>
-    <div class="tt-row">
-      <span>Size: <b>${treemapRenderer.formatSize(tile.size)}</b></span>
-      <span>•</span>
-      <span>${tile.is_dir ? 'Directory' : (tile.extension || 'File')}</span>
-    </div>
-    <div class="tt-path">${escapeHtml(tile.full_path)}</div>
-  `;
+  if (tooltip) {
+    tooltip.style.display = 'block';
+    tooltip.style.left = `${Math.min(window.innerWidth - 370, clientX + 16)}px`;
+    tooltip.style.top = `${Math.min(window.innerHeight - 130, clientY + 16)}px`;
+
+    tooltip.innerHTML = `
+      <div class="tt-name">${escapeHtml(tile.name)}</div>
+      <div class="tt-row">
+        <span>Size: <b>${treemapRenderer.formatSize(tile.size)}</b></span>
+        <span>•</span>
+        <span>${tile.is_dir ? 'Directory' : (tile.extension || 'File')}</span>
+      </div>
+      <div class="tt-path">${escapeHtml(tile.full_path)}</div>
+    `;
+  }
+}
+
+const CURRENT_VERSION = 'v1.1.2';
+
+function compareVersions(v1, v2) {
+  const clean = v => (v || '').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  const p1 = clean(v1);
+  const p2 = clean(v2);
+  for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+    const n1 = p1[i] || 0;
+    const n2 = p2[i] || 0;
+    if (n1 > n2) return 1;
+    if (n1 < n2) return -1;
+  }
+  return 0;
+}
+
+async function checkForUpdates(manual = false) {
+  const ub = document.getElementById('update-banner');
+  const ubVersion = document.getElementById('ub-version');
+  const btnNow = document.getElementById('btn-update-now');
+  const btnView = document.getElementById('btn-update-view');
+  const btnDismiss = document.getElementById('btn-update-dismiss');
+
+  try {
+    const resp = await fetch('https://api.github.com/repos/AMG555/TreeMCP/releases/latest', {
+      headers: { 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if (!resp.ok) {
+      if (manual) alert(`Could not check updates: GitHub returned ${resp.status}`);
+      return;
+    }
+
+    const data = await resp.json();
+    const latestTag = data.tag_name || '';
+
+    if (compareVersions(latestTag, CURRENT_VERSION) > 0) {
+      if (ub && ubVersion) {
+        ubVersion.textContent = latestTag;
+        ub.style.display = 'flex';
+
+        if (btnDismiss) {
+          btnDismiss.onclick = () => { ub.style.display = 'none'; };
+        }
+
+        if (btnView) {
+          btnView.onclick = () => { window.open(data.html_url || 'https://github.com/AMG555/TreeMCP/releases', '_blank'); };
+        }
+
+        if (btnNow) {
+          btnNow.onclick = async () => {
+            btnNow.disabled = true;
+            btnNow.textContent = 'Updating...';
+
+            let downloadUrl = '';
+            if (data.assets && data.assets.length > 0) {
+              const exeAsset = data.assets.find(a => a.name.endsWith('.exe')) || data.assets[0];
+              downloadUrl = exeAsset.browser_download_url;
+            }
+
+            if (!downloadUrl) {
+              window.open(data.html_url || 'https://github.com/AMG555/TreeMCP/releases', '_blank');
+              btnNow.textContent = 'Update Now';
+              btnNow.disabled = false;
+              return;
+            }
+
+            try {
+              const updResp = await fetch('/api/update/perform', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: downloadUrl, version: latestTag })
+              });
+              if (!updResp.ok) {
+                window.open(downloadUrl, '_blank');
+                btnNow.textContent = 'Update Now';
+                btnNow.disabled = false;
+              } else {
+                btnNow.textContent = 'Restarting TreeMCP...';
+              }
+            } catch (err) {
+              window.open(downloadUrl, '_blank');
+              btnNow.textContent = 'Update Now';
+              btnNow.disabled = false;
+            }
+          };
+        }
+      }
+    } else if (manual) {
+      alert(`TreeMCP is up to date! (Current version: ${CURRENT_VERSION})`);
+    }
+  } catch (e) {
+    if (manual) alert(`Unable to connect to GitHub releases: ${e.message}`);
+  }
 }
 
 function updateBreadcrumbs(initial) {

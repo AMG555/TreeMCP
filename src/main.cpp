@@ -47,6 +47,7 @@ static std::unique_ptr<McpProtocol> g_mcp;
 static std::atomic<bool> g_server_running{true};
 static std::string g_session_token;
 static int g_port = 4242;
+static bool g_test_mode = false;
 
 // Read local static file with embedded fallback for standalone distribution
 std::string read_static_file(const std::string& rel_path) {
@@ -189,27 +190,37 @@ std::string serialize_tree_for_ui(uint32_t idx, int max_depth, int cur_depth = 0
     return ss.str();
 }
 
-// Extract header value from raw HTTP request
+// Extract header value from raw HTTP request (case-insensitive)
 std::string get_http_header(const std::string& req, const std::string& header_name) {
-    std::string pat = "\r\n" + header_name + ":";
-    size_t pos = req.find(pat);
-    if (pos == std::string::npos) {
-        if (req.find(header_name + ":") == 0) {
-            pos = 0;
-            pat = header_name + ":";
-        } else {
-            return "";
+    std::string target = header_name;
+    for (char& c : target) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+
+    size_t line_start = 0;
+    while (line_start < req.size()) {
+        size_t line_end = req.find("\r\n", line_start);
+        if (line_end == std::string::npos) line_end = req.size();
+
+        size_t colon = req.find(':', line_start);
+        if (colon != std::string::npos && colon < line_end) {
+            std::string key = req.substr(line_start, colon - line_start);
+            while (!key.empty() && (key.front() == '\r' || key.front() == '\n' || key.front() == ' ')) key.erase(key.begin());
+            while (!key.empty() && key.back() == ' ') key.pop_back();
+            for (char& c : key) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+
+            if (key == target) {
+                size_t val_start = colon + 1;
+                while (val_start < line_end && req[val_start] == ' ') val_start++;
+                size_t val_end = line_end;
+                while (val_end > val_start && req[val_end - 1] == ' ') val_end--;
+                return req.substr(val_start, val_end - val_start);
+            }
         }
-    } else {
-        pos += 2;
+
+        if (line_end + 2 >= req.size()) break;
+        line_start = line_end + 2;
+        if (req.compare(line_start, 2, "\r\n") == 0) break; // End of HTTP headers
     }
-
-    pos += header_name.size() + 1;
-    while (pos < req.size() && req[pos] == ' ') pos++;
-
-    size_t line_end = req.find("\r\n", pos);
-    if (line_end == std::string::npos) line_end = req.size();
-    return req.substr(pos, line_end - pos);
+    return "";
 }
 
 // Extract query param from URI
@@ -517,6 +528,57 @@ void handle_http_client(socket_t client_sock) {
                     body = "{\"success\":false,\"message\":\"" + del_res.error_message + "\"}";
                 }
             }
+        } else if (clean_uri == "/api/update/perform") {
+            content_type = "application/json";
+#ifdef _WIN32
+            size_t body_pos = req.find("\r\n\r\n");
+            std::string post_body = (body_pos != std::string::npos) ? req.substr(body_pos + 4) : "{}";
+
+            std::string url;
+            size_t u_pos = post_body.find("\"url\":");
+            if (u_pos != std::string::npos) {
+                size_t q1 = post_body.find('"', u_pos + 6);
+                if (q1 != std::string::npos) {
+                    size_t q2 = post_body.find('"', q1 + 1);
+                    if (q2 != std::string::npos) {
+                        url = post_body.substr(q1 + 1, q2 - q1 - 1);
+                    }
+                }
+            }
+
+            if (!url.empty()) {
+                body = "{\"status\":\"downloading\"}";
+                std::thread([url]() {
+                    wchar_t temp_dir[MAX_PATH];
+                    GetTempPathW(MAX_PATH, temp_dir);
+                    std::wstring out_exe = std::wstring(temp_dir) + L"TreeMCP-Update.exe";
+
+                    int wlen = MultiByteToWideChar(CP_UTF8, 0, url.c_str(), -1, NULL, 0);
+                    std::wstring wurl;
+                    wurl.resize(wlen);
+                    MultiByteToWideChar(CP_UTF8, 0, url.c_str(), -1, &wurl[0], wlen);
+
+                    typedef HRESULT(WINAPI* URLDownloadToFileW_t)(LPUNKNOWN, LPCWSTR, LPCWSTR, DWORD, void*);
+                    HMODULE hUrlmon = LoadLibraryA("urlmon.dll");
+                    if (hUrlmon) {
+                        auto pfn = (URLDownloadToFileW_t)GetProcAddress(hUrlmon, "URLDownloadToFileW");
+                        if (pfn) {
+                            HRESULT hr = pfn(NULL, wurl.c_str(), out_exe.c_str(), 0, NULL);
+                            if (SUCCEEDED(hr)) {
+                                ShellExecuteW(NULL, L"open", out_exe.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                                std::this_thread::sleep_for(std::chrono::milliseconds(600));
+                                ExitProcess(0);
+                            }
+                        }
+                        FreeLibrary(hUrlmon);
+                    }
+                }).detach();
+            } else {
+                body = "{\"error\":\"Missing download URL\"}";
+            }
+#else
+            body = "{\"error\":\"Updates only supported on Windows\"}";
+#endif
         } else if (clean_uri == "/api/exit") {
             content_type = "application/json";
             body = "{\"ok\":true}";
@@ -546,7 +608,7 @@ void handle_http_client(socket_t client_sock) {
          << "Expires: 0\r\n"
          << "X-Content-Type-Options: nosniff\r\n"
          << "X-Frame-Options: DENY\r\n"
-         << "Content-Security-Policy: default-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*;\r\n"
+         << "Content-Security-Policy: default-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:* https://api.github.com;\r\n"
          << "Referrer-Policy: no-referrer\r\n"
          << "Connection: close\r\n\r\n"
          << body;
@@ -591,30 +653,40 @@ void run_web_server(int initial_port) {
     }
 
     g_port = port;
+    const char* temp_env = getenv("TEMP");
+    std::string port_path = (temp_env ? std::string(temp_env) : ".") + "/treemcp_port.txt";
+    std::ofstream pf(port_path);
+    if (pf.is_open()) {
+        pf << g_port;
+        pf.close();
+    }
 
     listen(server_sock, 10);
     std::cout << "[TreeMCP Server] Listening on http://127.0.0.1:" << port << std::endl;
     std::cout << "[Security Policy] Anti-DNS Rebinding: ACTIVE | Session Token Auth: ACTIVE\n";
     std::cout << "  * Desktop UI:       http://127.0.0.1:" << port << "/?token=" << g_session_token << "\n";
 
-    // Launch UI once port is verified
+    // Launch UI once port is verified (skip if in test/headless mode)
     std::string target_url = "http://127.0.0.1:" + std::to_string(port) + "/?token=" + g_session_token;
 
 #ifdef _WIN32
-    // Run genuine native Win32 window host (TreeMCP.exe process in Task Manager)
-    std::thread([target_url]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        NativeWindow::run_native_window(target_url, 1280, 820);
-        // Clean shutdown when user closes the native app window
-        g_server_running = false;
-        std::exit(0);
-    }).detach();
+    if (!g_test_mode) {
+        std::thread([target_url]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            NativeWindow::run_native_window(target_url, 1280, 820);
+            // Clean shutdown when user closes the native app window
+            g_server_running = false;
+            std::exit(0);
+        }).detach();
+    }
 #else
-    std::thread([target_url]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        std::string cmd = "xdg-open \"" + target_url + "\" >/dev/null 2>&1 &";
-        system(cmd.c_str());
-    }).detach();
+    if (!g_test_mode) {
+        std::thread([target_url]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            std::string cmd = "xdg-open \"" + target_url + "\" >/dev/null 2>&1 &";
+            system(cmd.c_str());
+        }).detach();
+    }
 #endif
 
     while (g_server_running) {
@@ -631,8 +703,12 @@ void run_web_server(int initial_port) {
 
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
+    if (argc >= 2 && (std::string(argv[1]) == "--test" || std::string(argv[1]) == "--dev")) {
+        g_test_mode = true;
+    }
+
     // If launched as desktop GUI (no args or --elevated), detach/hide console window completely
-    bool is_cli_mode = (argc >= 2 && (std::string(argv[1]) == "--mcp" || std::string(argv[1]) == "--scan" || std::string(argv[1]) == "--uninstall"));
+    bool is_cli_mode = g_test_mode || (argc >= 2 && (std::string(argv[1]) == "--mcp" || std::string(argv[1]) == "--scan" || std::string(argv[1]) == "--uninstall"));
     if (!is_cli_mode) {
         HWND console_hwnd = GetConsoleWindow();
         if (console_hwnd) {
@@ -647,7 +723,7 @@ int main(int argc, char* argv[]) {
     // Single instance mutex guard for GUI / Server mode
     HANDLE h_single_instance_mutex = NULL;
     bool is_elevating = (argc >= 2 && std::string(argv[1]) == "--elevated");
-    if (!is_elevating && (argc < 2 || (std::string(argv[1]) != "--mcp" && std::string(argv[1]) != "--scan"))) {
+    if (!is_elevating && !g_test_mode && (argc < 2 || (std::string(argv[1]) != "--mcp" && std::string(argv[1]) != "--scan"))) {
         h_single_instance_mutex = CreateMutexA(NULL, TRUE, "Global\\TreeMCP_SingleInstance_Mutex");
         if (GetLastError() == ERROR_ALREADY_EXISTS) {
             std::cerr << "[TreeMCP] Another instance is already running. Focusing existing instance.\n";
@@ -677,6 +753,13 @@ int main(int argc, char* argv[]) {
 #endif
 
     g_session_token = Security::generate_secure_token();
+    const char* temp_env = getenv("TEMP");
+    std::string token_path = (temp_env ? std::string(temp_env) : ".") + "/treemcp_token.txt";
+    std::ofstream tf(token_path);
+    if (tf.is_open()) {
+        tf << g_session_token;
+        tf.close();
+    }
     g_mcp = std::make_unique<McpProtocol>(g_tree, g_scanner);
 
     // Mode 0: CLI Uninstall
@@ -732,6 +815,8 @@ int main(int argc, char* argv[]) {
     int port = 4242;
     if (argc >= 3 && std::string(argv[1]) == "--serve") {
         port = std::stoi(argv[2]);
+    } else if (g_test_mode) {
+        port = 4250;
     }
 
     std::cout << "=====================================================\n";

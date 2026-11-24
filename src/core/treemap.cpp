@@ -46,11 +46,11 @@ std::vector<TreemapTile> TreemapEngine::compute_layout(
     if (items.empty()) return tiles;
 
     // Cap items per level to prevent subpixel rendering thrashing
-    if (items.size() > 500) {
+    if (items.size() > 2500) {
         std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) {
             return a.size > b.size;
         });
-        items.resize(500);
+        items.resize(2500);
     }
 
     uint64_t items_total_size = 0;
