@@ -1,9 +1,9 @@
-# TreeMCP One-Click Installer for Windows
+# TreeMCP One-Click Installer & Upgrade Script for Windows
 $ErrorActionPreference = 'Stop'
 
 # 1. Stop all previous/active TreeMCP processes before updating
 Get-Process -Name "TreeMCP" -ErrorAction SilentlyContinue | Stop-Process -Force
-Start-Sleep -Milliseconds 300
+Start-Sleep -Milliseconds 500
 
 $installDir = "$env:LOCALAPPDATA\TreeMCP"
 if (-not (Test-Path $installDir)) {
@@ -11,8 +11,41 @@ if (-not (Test-Path $installDir)) {
 }
 
 $exePath = Join-Path $installDir "TreeMCP.exe"
+$tempNewExe = Join-Path $installDir "TreeMCP_new.exe"
+$backupExe = Join-Path $installDir "TreeMCP.exe.bak"
 
-# 2. Clean up any stale or leftover binaries from old updates
+# 2. Acquire the new binary cleanly (from local build or remote latest release)
+if (Test-Path "$PSScriptRoot\TreeMCP.exe") {
+    Write-Host "==> Installing latest local TreeMCP build..." -ForegroundColor Cyan
+    Copy-Item -Path "$PSScriptRoot\TreeMCP.exe" -Destination $tempNewExe -Force
+} else {
+    Write-Host "==> Downloading latest TreeMCP release from GitHub..." -ForegroundColor Cyan
+    $downloadUrl = "https://github.com/AMG555/TreeMCP/releases/latest/download/TreeMCP.exe"
+    Invoke-WebRequest -Uri $downloadUrl -OutFile $tempNewExe -UseBasicParsing
+}
+
+# 3. Verify downloaded file integrity before replacing existing installation
+if (-not (Test-Path $tempNewExe) -or (Get-Item $tempNewExe).Length -lt 50000) {
+    throw "Downloaded binary is missing or corrupted. Aborting upgrade to protect existing installation."
+}
+Unblock-File -Path $tempNewExe -ErrorAction SilentlyContinue
+
+# 4. Atomic file swap: preserve previous as .bak in case of unexpected lock
+if (Test-Path $exePath) {
+    try {
+        Move-Item -Path $exePath -Destination $backupExe -Force
+    } catch {
+        # If locked by an elusive handle, retry after process purge
+        Get-Process -Name "TreeMCP" -ErrorAction SilentlyContinue | Stop-Process -Force
+        Start-Sleep -Milliseconds 300
+        Move-Item -Path $exePath -Destination $backupExe -Force
+    }
+}
+
+Move-Item -Path $tempNewExe -Destination $exePath -Force
+Remove-Item -Path $backupExe -Force -ErrorAction SilentlyContinue
+
+# 5. Clean up any stale or leftover binaries from old updates
 Get-ChildItem -Path $installDir -Filter "TreeMCP*.exe" -File -ErrorAction SilentlyContinue | ForEach-Object {
     if ($_.FullName -ne $exePath) {
         Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
@@ -20,7 +53,7 @@ Get-ChildItem -Path $installDir -Filter "TreeMCP*.exe" -File -ErrorAction Silent
 }
 Get-ChildItem -Path $installDir -Filter "*.bak" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 
-# 3. Clean up any duplicate installations in alternate locations
+# 6. Clean up any duplicate installations in legacy locations
 $legacyPaths = @(
     "$env:ProgramFiles\TreeMCP",
     "${env:ProgramFiles(x86)}\TreeMCP",
@@ -32,26 +65,28 @@ foreach ($lp in $legacyPaths) {
     }
 }
 
-if (Test-Path "$PSScriptRoot\TreeMCP.exe") {
-    Write-Host "==> Installing latest local TreeMCP build..." -ForegroundColor Cyan
-    Copy-Item -Path "$PSScriptRoot\TreeMCP.exe" -Destination $exePath -Force
-} else {
-    Write-Host "==> Downloading TreeMCP standalone binary..." -ForegroundColor Cyan
-    $downloadUrl = "https://github.com/AMG555/TreeMCP/releases/latest/download/TreeMCP.exe"
-    Invoke-WebRequest -Uri $downloadUrl -OutFile $exePath -UseBasicParsing
+# Ensure PATH includes install directory so `TreeMCP.exe` is callable from any shell
+try {
+    $userPath = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::User)
+    if ($userPath -notlike "*$installDir*") {
+        [Environment]::SetEnvironmentVariable("Path", "$installDir;$userPath", [EnvironmentVariableTarget]::User)
+        $env:Path = "$installDir;$env:Path"
+        Write-Host "==> Added $installDir to User PATH" -ForegroundColor Green
+    }
+} catch {
+    # Non-fatal
 }
-Unblock-File -Path $exePath -ErrorAction SilentlyContinue
 
 Write-Host "==> TreeMCP canonical binary verified at: $exePath" -ForegroundColor Green
 
-# 4. Standard Windows Control Panel "Add/Remove Programs" Registration (prevents multi-version clutter)
+# 7. Standard Windows Control Panel "Add/Remove Programs" Registration (merged version info)
 try {
     $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TreeMCP"
     if (-not (Test-Path $regPath)) {
         New-Item -Path $regPath -Force | Out-Null
     }
     Set-ItemProperty -Path $regPath -Name "DisplayName" -Value "TreeMCP - Disk Space Analyzer & MCP Server" -Force
-    Set-ItemProperty -Path $regPath -Name "DisplayVersion" -Value "1.1.0" -Force
+    Set-ItemProperty -Path $regPath -Name "DisplayVersion" -Value "1.1.4" -Force
     Set-ItemProperty -Path $regPath -Name "Publisher" -Value "TreeMCP Project" -Force
     Set-ItemProperty -Path $regPath -Name "InstallLocation" -Value $installDir -Force
     Set-ItemProperty -Path $regPath -Name "DisplayIcon" -Value "$exePath,0" -Force
