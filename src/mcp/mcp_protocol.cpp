@@ -4,6 +4,16 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <thread>
+#include <chrono>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <shellapi.h>
+#endif
 
 namespace TreeMCP {
 
@@ -148,6 +158,13 @@ std::string McpProtocol::handle_tools_list(const std::string& id) {
             "\"name\":\"treemcp_status\","
             "\"description\":\"Get current TreeMCP runtime status, process elevation (is_admin), active privileges, and security state.\","
             "\"inputSchema\":{\"type\":\"object\",\"properties\":{}}"
+        "},"
+        "{"
+            "\"name\":\"treemcp_elevate\","
+            "\"description\":\"Request Windows Administrator UAC elevation for TreeMCP in the background so all MCP tools gain full elevated kernel permissions.\","
+            "\"inputSchema\":{\"type\":\"object\",\"properties\":{"
+                "\"headless\":{\"type\":\"boolean\",\"description\":\"If true, runs elevated TreeMCP server in the background without opening GUI (default true)\"}"
+            "}}"
         "}"
         "]}";
 
@@ -249,14 +266,73 @@ std::string McpProtocol::handle_tools_call(const std::string& id, const std::str
     }
     else if (tool_name == "treemcp_status") {
         bool is_adm = MftReader::has_admin_privileges();
+        auto srv = Security::get_active_server();
+        bool is_bridged_admin = (!is_adm && srv.is_valid && srv.is_admin);
+
         std::stringstream ss;
-        ss << "TreeMCP Runtime Status:\n"
-           << "  * Process Elevated (Admin): " << (is_adm ? "YES (Full Elevated Kernel Access)" : "NO (Standard User - Elevation must be granted from TreeMCP.exe)") << "\n"
-           << "  * Engine Mode: " << (is_adm ? "Direct NTFS MFT Engine" : "Win32 Standard Crawler") << "\n"
-           << "  * Security Boundary: Admin privileges strictly enforced via OS process token. Elevation cannot be spoofed or escalated via MCP without launching TreeMCP.exe elevated with Windows UAC consent.\n"
-           << "  * Guardrails Active: Protected Paths Shielding & User Consent Gate.";
+        ss << "TreeMCP Runtime Status:\n";
+        if (is_adm) {
+            ss << "  * Process Elevated (Admin): YES (Direct In-Process Kernel Access)\n"
+               << "  * Engine Mode: Direct NTFS MFT Engine\n"
+               << "  * Active Privileges: SeBackupPrivilege, SeRestorePrivilege, SeTakeOwnershipPrivilege\n"
+               << "  * Security Boundary: Full Administrator privileges active in process token.\n";
+        } else if (is_bridged_admin) {
+            ss << "  * Process Elevated (Admin): YES (Full Elevated Kernel Access via Elevated TreeMCP Service)\n"
+               << "  * Engine Mode: Direct NTFS MFT Engine (Bridged to 127.0.0.1:" << srv.port << " [PID " << srv.pid << "])\n"
+               << "  * Active Privileges: SeBackupPrivilege, SeRestorePrivilege, SeTakeOwnershipPrivilege (Inherited from Elevated TreeMCP)\n"
+               << "  * Elevation Bridge: Active - Elevation covers TreeMCP and your shell seamlessly!\n";
+        } else {
+            ss << "  * Process Elevated (Admin): NO (Standard User - Elevation not yet active)\n"
+               << "  * Engine Mode: Win32 Standard Crawler\n"
+               << "  * Elevation Guidance: When TreeMCP is run as administrator, your shell automatically gains full admin access via the localhost bridge.\n"
+               << "      - Option 1: Right-click TreeMCP.exe and select 'Run as administrator' (or click 'Restart as Administrator' in GUI).\n"
+               << "      - Option 2: Call tool 'treemcp_elevate' to launch elevated TreeMCP in the background with Windows UAC consent.\n";
+        }
+        ss << "  * Guardrails Active: Protected Paths Shielding & User Consent Gate.";
         text_result = ss.str();
-        standard_tokens = 40;
+        standard_tokens = 50;
+    }
+    else if (tool_name == "treemcp_elevate") {
+        bool is_adm = MftReader::has_admin_privileges();
+        auto srv = Security::get_active_server();
+        if (is_adm || (srv.is_valid && srv.is_admin)) {
+            text_result = "[ALREADY ELEVATED] TreeMCP already possesses full Administrator privileges. All MCP tools have elevated kernel access.";
+            standard_tokens = 30;
+        } else {
+#ifdef _WIN32
+            std::string headless_str = parse_json_field(args_json, "headless");
+            bool headless = (headless_str != "false");
+
+            wchar_t exe_path[MAX_PATH];
+            GetModuleFileNameW(NULL, exe_path, MAX_PATH);
+
+            LPCWSTR params = headless ? L"--serve 4242 --elevated" : L"--elevated";
+            HINSTANCE hInst = ShellExecuteW(NULL, L"runas", exe_path, params, NULL, headless ? SW_HIDE : SW_SHOWNORMAL);
+
+            if ((INT_PTR)hInst > 32) {
+                bool connected = false;
+                for (int i = 0; i < 35; ++i) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    auto check_srv = Security::get_active_server();
+                    if (check_srv.is_valid && check_srv.is_admin) {
+                        connected = true;
+                        srv = check_srv;
+                        break;
+                    }
+                }
+                if (connected) {
+                    text_result = "[SUCCESS] TreeMCP elevated successfully! Active on port " + std::to_string(srv.port) + " with full Administrator access. All MCP commands in your shell now possess full elevated kernel permissions.";
+                } else {
+                    text_result = "[ELEVATED PROCESS LAUNCHED] Windows UAC prompt approved. Elevated TreeMCP is initializing in the background. Subsequent calls will automatically route through the elevated engine.";
+                }
+            } else {
+                text_result = "[ELEVATION CANCELLED] User declined Windows UAC elevation prompt (error " + std::to_string((INT_PTR)hInst) + "). Continuing in standard user mode.";
+            }
+#else
+            text_result = "[NOT SUPPORTED] UAC elevation is only supported on Windows.";
+#endif
+            standard_tokens = 40;
+        }
     }
     else if (tool_name == "treemcp_clean") {
         std::string path_str = parse_json_field(args_json, "path");
@@ -339,12 +415,46 @@ std::string McpProtocol::process_message(const std::string& raw_json) {
 }
 
 void McpProtocol::run_stdio_server() {
+    bool is_self_admin = MftReader::has_admin_privileges();
+    Security::ActiveServerInfo active_srv;
+
+    if (is_self_admin) {
+        MftReader::enable_privilege(L"SeBackupPrivilege");
+        MftReader::enable_privilege(L"SeRestorePrivilege");
+        MftReader::enable_privilege(L"SeTakeOwnershipPrivilege");
+    }
+
     std::string line;
     while (std::getline(std::cin, line)) {
         if (line.empty()) continue;
-        std::string resp = process_message(line);
+
+        std::string resp;
+
+        if (!is_self_admin) {
+            // Re-check for elevated server if not yet verified
+            if (!active_srv.is_valid || !active_srv.is_admin) {
+                active_srv = Security::get_active_server();
+            }
+
+            if (active_srv.is_valid && active_srv.is_admin) {
+                resp = Security::http_post_local(active_srv.port, "/mcp", active_srv.token, line);
+                if (resp.empty() || resp.find("\"jsonrpc\"") == std::string::npos) {
+                    active_srv.is_valid = false;
+                    resp = process_message(line);
+                }
+            } else {
+                resp = process_message(line);
+            }
+        } else {
+            resp = process_message(line);
+        }
+
         if (!resp.empty()) {
-            std::cout << resp << std::flush;
+            std::cout << resp;
+            if (resp.back() != '\n') {
+                std::cout << '\n';
+            }
+            std::cout << std::flush;
         }
     }
 }

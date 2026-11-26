@@ -48,6 +48,7 @@ static std::atomic<bool> g_server_running{true};
 static std::string g_session_token;
 static int g_port = 4242;
 static bool g_test_mode = false;
+static bool g_headless_mode = false;
 
 // Read local static file with embedded fallback for standalone distribution
 std::string read_static_file(const std::string& rel_path) {
@@ -590,6 +591,7 @@ void handle_http_client(socket_t client_sock) {
             std::thread([]() {
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
                 g_server_running = false;
+                Security::clear_active_server();
                 std::exit(0);
             }).detach();
         } else if (clean_uri == "/mcp" || clean_uri == "/api/mcp") {
@@ -666,6 +668,9 @@ void run_web_server(int initial_port) {
         pf.close();
     }
 
+    // Register active server for transparent MCP stdio bridging across user integrity levels
+    Security::save_active_server(port, g_session_token, MftReader::has_admin_privileges());
+
     listen(server_sock, 10);
     std::cout << "[TreeMCP Server] Listening on http://127.0.0.1:" << port << std::endl;
     std::cout << "[Security Policy] Anti-DNS Rebinding: ACTIVE | Session Token Auth: ACTIVE\n";
@@ -675,17 +680,18 @@ void run_web_server(int initial_port) {
     std::string target_url = "http://127.0.0.1:" + std::to_string(port) + "/?token=" + g_session_token;
 
 #ifdef _WIN32
-    if (!g_test_mode) {
+    if (!g_test_mode && !g_headless_mode) {
         std::thread([target_url]() {
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
             NativeWindow::run_native_window(target_url, 1280, 820);
             // Clean shutdown when user closes the native app window
             g_server_running = false;
+            Security::clear_active_server();
             std::exit(0);
         }).detach();
     }
 #else
-    if (!g_test_mode) {
+    if (!g_test_mode && !g_headless_mode) {
         std::thread([target_url]() {
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
             std::string cmd = "xdg-open \"" + target_url + "\" >/dev/null 2>&1 &";
@@ -700,6 +706,7 @@ void run_web_server(int initial_port) {
         std::thread(handle_http_client, client_sock).detach();
     }
 
+    Security::clear_active_server();
     CLOSE_SOCKET(server_sock);
 #ifdef _WIN32
     WSACleanup();
@@ -707,13 +714,42 @@ void run_web_server(int initial_port) {
 }
 
 int main(int argc, char* argv[]) {
-#ifdef _WIN32
-    if (argc >= 2 && (std::string(argv[1]) == "--test" || std::string(argv[1]) == "--dev")) {
-        g_test_mode = true;
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--test" || arg == "--dev") {
+            g_test_mode = true;
+        } else if (arg == "--headless" || arg == "--daemon" || arg == "--serve") {
+            g_headless_mode = true;
+        }
     }
 
+    // CLI Elevation Request: launch elevated instance with UAC prompt and exit
+    if (argc >= 2 && (std::string(argv[1]) == "--elevate" || std::string(argv[1]) == "--admin")) {
+#ifdef _WIN32
+        if (!MftReader::has_admin_privileges()) {
+            wchar_t exe_path[MAX_PATH];
+            GetModuleFileNameW(NULL, exe_path, MAX_PATH);
+            std::cout << "[TreeMCP] Elevation requested. Prompting for Windows Administrator UAC consent...\n";
+            HINSTANCE hInst = ShellExecuteW(NULL, L"runas", exe_path, L"--serve 4242 --elevated", NULL, SW_SHOWNORMAL);
+            if ((INT_PTR)hInst > 32) {
+                std::cout << "[TreeMCP] Elevated background server launched successfully on port 4242.\n";
+            } else {
+                std::cerr << "[TreeMCP] Elevation was cancelled by user.\n";
+            }
+            return 0;
+        } else {
+            std::cout << "[TreeMCP] Already running with full Administrator privileges.\n";
+            return 0;
+        }
+#else
+        std::cout << "[TreeMCP] Elevation flags only apply to Windows UAC.\n";
+        return 0;
+#endif
+    }
+
+#ifdef _WIN32
     // If launched as desktop GUI (no args or --elevated), detach/hide console window completely
-    bool is_cli_mode = g_test_mode || (argc >= 2 && (std::string(argv[1]) == "--mcp" || std::string(argv[1]) == "--scan" || std::string(argv[1]) == "--uninstall"));
+    bool is_cli_mode = g_test_mode || g_headless_mode || (argc >= 2 && (std::string(argv[1]) == "--mcp" || std::string(argv[1]) == "--mcp-stdio" || std::string(argv[1]) == "--scan" || std::string(argv[1]) == "--uninstall"));
     if (!is_cli_mode) {
         HWND console_hwnd = GetConsoleWindow();
         if (console_hwnd) {

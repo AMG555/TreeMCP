@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -35,6 +36,30 @@ public:
 
     // Check if string contains dangerous control characters or null bytes
     static bool contains_dangerous_chars(const std::string& str);
+
+    // Active server runtime descriptor
+    struct ActiveServerInfo {
+        int port = 0;
+        std::string token;
+        uint32_t pid = 0;
+        bool is_admin = false;
+        bool is_valid = false;
+    };
+
+    // Save active server information to shared runtime locations
+    static void save_active_server(int port, const std::string& token, bool is_admin);
+
+    // Remove active server registration on shutdown
+    static void clear_active_server();
+
+    // Discover if an active or elevated TreeMCP server is running
+    static ActiveServerInfo get_active_server();
+
+    // Send HTTP POST to local TreeMCP server
+    static std::string http_post_local(int port, const std::string& path, const std::string& token, const std::string& body, int timeout_ms = 3000);
+
+    // Send HTTP GET to local TreeMCP server
+    static std::string http_get_local(int port, const std::string& path, const std::string& token, int timeout_ms = 1500);
 };
 
 } // namespace TreeMCP

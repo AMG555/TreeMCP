@@ -7,18 +7,30 @@
 #include <vector>
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <wincrypt.h>
 #include <shellapi.h>
 #include <shlobj.h>
-
+using socket_t = SOCKET;
+#define CLOSE_SOCKET closesocket
+#pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "shell32.lib")
 #else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+using socket_t = int;
+#define INVALID_SOCKET (-1)
+#define SOCKET_ERROR (-1)
+#define CLOSE_SOCKET close
 #endif
 
 namespace TreeMCP {
@@ -452,6 +464,293 @@ bool Security::contains_dangerous_chars(const std::string& str) {
         if (c < 32 && c != '\t') return true;
     }
     return false;
+}
+
+// =========================================================================
+// 7. ACTIVE SERVER REGISTRATION & ELEVATED IPC BRIDGE
+// =========================================================================
+
+static std::vector<std::string> get_server_info_paths() {
+    std::vector<std::string> paths;
+#ifdef _WIN32
+    const char* temp_env = getenv("TEMP");
+    if (temp_env) {
+        paths.push_back(std::string(temp_env) + "/treemcp_active.json");
+    }
+    const char* localappdata = getenv("LOCALAPPDATA");
+    if (localappdata) {
+        paths.push_back(std::string(localappdata) + "/TreeMCP/active_server.json");
+    }
+    const char* progdata = getenv("ProgramData");
+    if (progdata) {
+        paths.push_back(std::string(progdata) + "/TreeMCP/active_server.json");
+    }
+    paths.push_back("C:/ProgramData/TreeMCP/active_server.json");
+#else
+    const char* tmp = getenv("TMPDIR");
+    if (!tmp) tmp = "/tmp";
+    paths.push_back(std::string(tmp) + "/treemcp_active.json");
+    const char* home = getenv("HOME");
+    if (home) {
+        paths.push_back(std::string(home) + "/.treemcp_active.json");
+    }
+#endif
+    return paths;
+}
+
+void Security::save_active_server(int port, const std::string& token, bool is_admin) {
+    uint32_t pid = 0;
+#ifdef _WIN32
+    pid = GetCurrentProcessId();
+#else
+    pid = getpid();
+#endif
+
+    std::ostringstream json;
+    json << "{\"port\":" << port
+         << ",\"token\":\"" << token << "\""
+         << ",\"pid\":" << pid
+         << ",\"is_admin\":" << (is_admin ? "true" : "false")
+         << ",\"version\":\"1.1.3\"}";
+    std::string content = json.str();
+
+    auto paths = get_server_info_paths();
+    for (const auto& path : paths) {
+        size_t slash = path.find_last_of("/\\");
+        if (slash != std::string::npos) {
+            std::string parent = path.substr(0, slash);
+#ifdef _WIN32
+            CreateDirectoryA(parent.c_str(), NULL);
+#else
+            mkdir(parent.c_str(), 0755);
+#endif
+        }
+        std::ofstream f(path);
+        if (f.is_open()) {
+            f << content;
+            f.close();
+        }
+    }
+
+#ifdef _WIN32
+    const char* temp_env = getenv("TEMP");
+    if (temp_env) {
+        std::ofstream tf(std::string(temp_env) + "/treemcp_token.txt");
+        if (tf.is_open()) { tf << token; tf.close(); }
+    }
+#endif
+}
+
+void Security::clear_active_server() {
+    auto paths = get_server_info_paths();
+    for (const auto& path : paths) {
+#ifdef _WIN32
+        DeleteFileA(path.c_str());
+#else
+        unlink(path.c_str());
+#endif
+    }
+}
+
+Security::ActiveServerInfo Security::get_active_server() {
+    ActiveServerInfo info;
+    auto paths = get_server_info_paths();
+    for (const auto& path : paths) {
+        std::ifstream f(path);
+        if (f.is_open()) {
+            std::string line;
+            std::getline(f, line);
+            f.close();
+
+            if (!line.empty()) {
+                size_t p_pos = line.find("\"port\":");
+                if (p_pos != std::string::npos) {
+                    p_pos += 7;
+                    info.port = std::stoi(line.substr(p_pos));
+                }
+                size_t t_pos = line.find("\"token\":\"");
+                if (t_pos != std::string::npos) {
+                    t_pos += 9;
+                    size_t t_end = line.find('"', t_pos);
+                    if (t_end != std::string::npos) {
+                        info.token = line.substr(t_pos, t_end - t_pos);
+                    }
+                }
+                size_t pid_pos = line.find("\"pid\":");
+                if (pid_pos != std::string::npos) {
+                    pid_pos += 6;
+                    info.pid = static_cast<uint32_t>(std::stoul(line.substr(pid_pos)));
+                }
+                size_t adm_pos = line.find("\"is_admin\":");
+                if (adm_pos != std::string::npos) {
+                    info.is_admin = (line.substr(adm_pos + 11, 4) == "true");
+                }
+
+                if (info.port > 0 && !info.token.empty()) {
+                    std::string test_resp = http_get_local(info.port, "/api/system-info", info.token, 600);
+                    if (!test_resp.empty() && test_resp.find("\"is_admin\"") != std::string::npos) {
+                        info.is_valid = true;
+                        if (test_resp.find("\"is_admin\":true") != std::string::npos) {
+                            info.is_admin = true;
+                        }
+                        return info;
+                    }
+                }
+            }
+        }
+    }
+
+#ifdef _WIN32
+    const char* temp_env = getenv("TEMP");
+    if (temp_env) {
+        std::string tpath = std::string(temp_env) + "/treemcp_token.txt";
+        std::ifstream tf(tpath);
+        if (tf.is_open()) {
+            std::string tok;
+            std::getline(tf, tok);
+            tf.close();
+            if (!tok.empty()) {
+                std::string test_resp = http_get_local(4242, "/api/system-info", tok, 600);
+                if (!test_resp.empty() && test_resp.find("\"is_admin\"") != std::string::npos) {
+                    info.port = 4242;
+                    info.token = tok;
+                    info.is_valid = true;
+                    info.is_admin = (test_resp.find("\"is_admin\":true") != std::string::npos);
+                    return info;
+                }
+            }
+        }
+    }
+#endif
+
+    return info;
+}
+
+std::string Security::http_post_local(int port, const std::string& path, const std::string& token, const std::string& body, int timeout_ms) {
+    if (port <= 0 || port > 65535) return "";
+
+#ifdef _WIN32
+    WSADATA wsa;
+    WSAStartup(MAKEWORD(2, 2), &wsa);
+#endif
+
+    socket_t sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock == (socket_t)SOCKET_ERROR || sock == (socket_t)INVALID_SOCKET) {
+        return "";
+    }
+
+#ifdef _WIN32
+    DWORD tv = static_cast<DWORD>(timeout_ms);
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(tv));
+#else
+    struct timeval tv;
+    tv.tv_sec = timeout_ms / 1000;
+    tv.tv_usec = (timeout_ms % 1000) * 1000;
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+#endif
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(static_cast<uint16_t>(port));
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    if (connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
+        CLOSE_SOCKET(sock);
+        return "";
+    }
+
+    std::ostringstream req;
+    req << "POST " << path << " HTTP/1.1\r\n"
+        << "Host: 127.0.0.1:" << port << "\r\n"
+        << "X-TreeMCP-Token: " << token << "\r\n"
+        << "Content-Type: application/json\r\n"
+        << "Content-Length: " << body.size() << "\r\n"
+        << "Connection: close\r\n\r\n"
+        << body;
+
+    std::string req_str = req.str();
+    if (send(sock, req_str.c_str(), static_cast<int>(req_str.size()), 0) <= 0) {
+        CLOSE_SOCKET(sock);
+        return "";
+    }
+
+    std::string resp;
+    char buffer[8192];
+    int n = 0;
+    while ((n = recv(sock, buffer, sizeof(buffer), 0)) > 0) {
+        resp.append(buffer, n);
+    }
+    CLOSE_SOCKET(sock);
+
+    size_t header_end = resp.find("\r\n\r\n");
+    if (header_end != std::string::npos) {
+        return resp.substr(header_end + 4);
+    }
+    return "";
+}
+
+std::string Security::http_get_local(int port, const std::string& path, const std::string& token, int timeout_ms) {
+    if (port <= 0 || port > 65535) return "";
+
+#ifdef _WIN32
+    WSADATA wsa;
+    WSAStartup(MAKEWORD(2, 2), &wsa);
+#endif
+
+    socket_t sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock == (socket_t)SOCKET_ERROR || sock == (socket_t)INVALID_SOCKET) {
+        return "";
+    }
+
+#ifdef _WIN32
+    DWORD tv = static_cast<DWORD>(timeout_ms);
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(tv));
+#else
+    struct timeval tv;
+    tv.tv_sec = timeout_ms / 1000;
+    tv.tv_usec = (timeout_ms % 1000) * 1000;
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+#endif
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(static_cast<uint16_t>(port));
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    if (connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
+        CLOSE_SOCKET(sock);
+        return "";
+    }
+
+    std::ostringstream req;
+    req << "GET " << path << (path.find('?') == std::string::npos ? "?token=" : "&token=") << token << " HTTP/1.1\r\n"
+        << "Host: 127.0.0.1:" << port << "\r\n"
+        << "X-TreeMCP-Token: " << token << "\r\n"
+        << "Connection: close\r\n\r\n";
+
+    std::string req_str = req.str();
+    if (send(sock, req_str.c_str(), static_cast<int>(req_str.size()), 0) <= 0) {
+        CLOSE_SOCKET(sock);
+        return "";
+    }
+
+    std::string resp;
+    char buffer[4096];
+    int n = 0;
+    while ((n = recv(sock, buffer, sizeof(buffer), 0)) > 0) {
+        resp.append(buffer, n);
+    }
+    CLOSE_SOCKET(sock);
+
+    size_t header_end = resp.find("\r\n\r\n");
+    if (header_end != std::string::npos) {
+        return resp.substr(header_end + 4);
+    }
+    return "";
 }
 
 } // namespace TreeMCP
