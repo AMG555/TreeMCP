@@ -7,7 +7,7 @@
 ### Ultra-Fast Lightweight Disk Space Analyzer & Hardened Model Context Protocol (MCP) Server
 **Cross-Platform: Windows & Linux**
 
-[![Download TreeMCP](https://img.shields.io/badge/⬇️_Download-TreeMCP.exe_(v1.1.0)-20bf6b?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/AMG555/TreeMCP/releases/download/v1.1.0/TreeMCP.exe)
+[![Download TreeMCP](https://img.shields.io/badge/⬇️_Download-TreeMCP.exe_(v1.1.4)-20bf6b?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/AMG555/TreeMCP/releases/download/v1.1.4/TreeMCP.exe)
 [![GitHub Release](https://img.shields.io/github/v/release/AMG555/TreeMCP?style=for-the-badge&color=3867d6)](https://github.com/AMG555/TreeMCP/releases/latest)
 
 [![CI](https://github.com/AMG555/TreeMCP/actions/workflows/ci.yml/badge.svg)](https://github.com/AMG555/TreeMCP/actions)
@@ -41,8 +41,8 @@
 ## 📥 Direct Download & Instant Setup
 
 ### Option 1: Standalone Download (Windows)
-* **[⬇️ Download TreeMCP-v1.1.0-windows-x64.zip](https://github.com/AMG555/TreeMCP/releases/download/v1.1.0/TreeMCP-v1.1.0-windows-x64.zip)** (Recommended: Zip package prevents browser warnings)
-* **[⬇️ Download TreeMCP.exe (v1.1.0 Standalone Executable)](https://github.com/AMG555/TreeMCP/releases/download/v1.1.0/TreeMCP.exe)** (~320 KB)
+* **[⬇️ Download TreeMCP-windows-x64.zip](https://github.com/AMG555/TreeMCP/releases/download/v1.1.4/TreeMCP-windows-x64.zip)** (Recommended: Zip package prevents browser warnings)
+* **[⬇️ Download TreeMCP.exe (v1.1.4 Standalone Executable)](https://github.com/AMG555/TreeMCP/releases/download/v1.1.4/TreeMCP.exe)** (~320 KB)
 * All releases & checksums: **[GitHub Releases Page](https://github.com/AMG555/TreeMCP/releases)**
 
 > **ℹ️ Note on Windows SmartScreen / Browser Warnings:**
@@ -57,7 +57,7 @@
 Paste this prompt into **Claude Code**, **Antigravity**, **Cursor**, or **Windsurf**:
 
 ```markdown
-Download the latest TreeMCP standalone binary from https://github.com/AMG555/TreeMCP/releases/download/v1.1.0/TreeMCP.exe, place it in %LOCALAPPDATA%\TreeMCP\TreeMCP.exe (or clone and run `make` on Linux to build ~/.local/bin/treemcp), register it in your active mcpServers configuration with command `TreeMCP.exe` and args `["--mcp"]`, and test the connection by invoking the `treemcp_drive_summary` tool.
+Download the latest TreeMCP standalone binary from https://github.com/AMG555/TreeMCP/releases/download/v1.1.4/TreeMCP.exe, place it in %LOCALAPPDATA%\TreeMCP\TreeMCP.exe (or clone and run `make` on Linux to build ~/.local/bin/treemcp), register it in your active mcpServers configuration with command `TreeMCP.exe` and args `["--mcp"]`, and test the connection by invoking the `treemcp_drive_summary` tool.
 ```
 
 ---
