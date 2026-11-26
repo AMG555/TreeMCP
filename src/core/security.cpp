@@ -656,10 +656,28 @@ std::string Security::http_post_local(int port, const std::string& path, const s
     addr.sin_port = htons(static_cast<uint16_t>(port));
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
+#ifdef _WIN32
+    u_long mode = 1;
+    ioctlsocket(sock, FIONBIO, &mode);
+    connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+    fd_set write_fds;
+    FD_ZERO(&write_fds);
+    FD_SET(sock, &write_fds);
+    timeval timeout{};
+    timeout.tv_sec = timeout_ms / 1000;
+    timeout.tv_usec = (timeout_ms % 1000) * 1000;
+    if (select(0, NULL, &write_fds, NULL, &timeout) <= 0) {
+        CLOSE_SOCKET(sock);
+        return "";
+    }
+    mode = 0;
+    ioctlsocket(sock, FIONBIO, &mode);
+#else
     if (connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
         CLOSE_SOCKET(sock);
         return "";
     }
+#endif
 
     std::ostringstream req;
     req << "POST " << path << " HTTP/1.1\r\n"
@@ -721,10 +739,28 @@ std::string Security::http_get_local(int port, const std::string& path, const st
     addr.sin_port = htons(static_cast<uint16_t>(port));
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
+#ifdef _WIN32
+    u_long mode = 1;
+    ioctlsocket(sock, FIONBIO, &mode);
+    connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+    fd_set write_fds;
+    FD_ZERO(&write_fds);
+    FD_SET(sock, &write_fds);
+    timeval timeout{};
+    timeout.tv_sec = timeout_ms / 1000;
+    timeout.tv_usec = (timeout_ms % 1000) * 1000;
+    if (select(0, NULL, &write_fds, NULL, &timeout) <= 0) {
+        CLOSE_SOCKET(sock);
+        return "";
+    }
+    mode = 0;
+    ioctlsocket(sock, FIONBIO, &mode);
+#else
     if (connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
         CLOSE_SOCKET(sock);
         return "";
     }
+#endif
 
     std::ostringstream req;
     req << "GET " << path << (path.find('?') == std::string::npos ? "?token=" : "&token=") << token << " HTTP/1.1\r\n"
